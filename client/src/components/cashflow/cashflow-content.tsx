@@ -22,17 +22,17 @@ const cashflowSchema = z.object({
   type: z.enum(["Sales", "Inventory", "Utilities", "Salary", "Other", "Pembelian Minyak", "Transfer Rekening"], {
     errorMap: () => ({ message: "Please select a type" })
   }),
-  amount: z.coerce.number().positive("Amount must be positive"),
+  amount: z.coerce.number().positive("Amount must be positive").transform(val => val.toString()),
   description: z.string().optional(),
   // Additional fields for Pembelian Minyak
-  jumlahGalon: z.coerce.number().positive("Jumlah galon must be positive").optional(),
-  pajakOngkos: z.coerce.number().optional(),
-  pajakTransfer: z.coerce.number().optional(),
-  totalPengeluaran: z.coerce.number().optional(),
+  jumlahGalon: z.coerce.number().positive("Jumlah galon must be positive").optional().transform(val => val?.toString()),
+  pajakOngkos: z.coerce.number().optional().transform(val => val?.toString()),
+  pajakTransfer: z.coerce.number().optional().transform(val => val?.toString()),
+  totalPengeluaran: z.coerce.number().optional().transform(val => val?.toString()),
   // Additional fields for Transfer Rekening
   konter: z.enum(["Dia store", "manual"]).optional(),
-  pajakTransferRekening: z.coerce.number().optional(),
-  hasil: z.coerce.number().optional(),
+  pajakTransferRekening: z.coerce.number().optional().transform(val => val?.toString()),
+  hasil: z.coerce.number().optional().transform(val => val?.toString()),
 });
 
 type CashflowData = z.infer<typeof cashflowSchema>;
