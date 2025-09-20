@@ -11,6 +11,7 @@ import ProposalContent from "@/components/proposal/proposal-content";
 import OvertimeContent from "@/components/overtime/overtime-content";
 import EmployeeListPage from "@/pages/attendance/employee-list";
 import CustomerPage from "@/pages/customer-page";
+import PiutangPage from "@/pages/piutang-page";
 import SettingsContent from "@/components/settings/settings-content";
 
 export default function HomePage() {
@@ -33,6 +34,8 @@ export default function HomePage() {
         return <CashflowContent />;
       case "customer":
         return <CustomerPage />;
+      case "piutang":
+        return <PiutangPage />;
       case "payroll":
         return <PayrollContent />;
       case "proposal":
