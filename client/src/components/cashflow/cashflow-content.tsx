@@ -52,11 +52,9 @@ export default function CashflowContent() {
   const watchType = form.watch("type");
   const watchJumlahGalon = form.watch("jumlahGalon");
 
-  // Helper function to round up pajak ongkos
+  // Helper function to round up pajak ongkos to nearest ten thousand
   const roundUpPajakOngkos = (amount: number): number => {
-    if (amount <= 96000) return 100000;
-    if (amount <= 154000) return 160000;
-    // For amounts above 154000, round up to the next 10000
+    // Always round up to the nearest 10,000 (ten thousand)
     return Math.ceil(amount / 10000) * 10000;
   };
 
