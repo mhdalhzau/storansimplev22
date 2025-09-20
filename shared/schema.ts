@@ -3,6 +3,16 @@ import { pgTable, text, varchar, integer, decimal, timestamp, boolean } from "dr
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Transaction type constants
+export const TRANSACTION_TYPES = {
+  PEMBERIAN_UTANG: "Pemberian Utang",
+  PEMBAYARAN_PIUTANG: "Pembayaran Piutang",
+  PEMBELIAN_MINYAK: "Pembelian stok (Pembelian Minyak)",
+  PEMBELIAN_MINYAK_ALT: "Pembelian Minyak",
+  TRANSFER_REKENING: "Transfer Rekening",
+  PENJUALAN_TRANSFER: "Penjualan (Transfer rekening)"
+} as const;
+
 // Users table
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

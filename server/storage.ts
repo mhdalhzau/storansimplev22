@@ -23,7 +23,8 @@ import {
   type Customer,
   type InsertCustomer,
   type Piutang,
-  type InsertPiutang
+  type InsertPiutang,
+  TRANSACTION_TYPES
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import session from "express-session";
@@ -74,7 +75,7 @@ export interface IStorage {
   // Cashflow methods
   getCashflow(id: string): Promise<Cashflow | undefined>;
   getCashflowByStore(storeId: number): Promise<Cashflow[]>;
-  createCashflow(cashflow: InsertCashflow): Promise<Cashflow>;
+  createCashflow(cashflow: InsertCashflow, createdBy?: string): Promise<Cashflow>;
   
   // Payroll methods
   getPayroll(id: string): Promise<Payroll | undefined>;
@@ -109,6 +110,7 @@ export interface IStorage {
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, data: Partial<InsertCustomer>): Promise<Customer | undefined>;
   deleteCustomer(id: string): Promise<void>;
+  searchCustomers(storeId: number, query: string): Promise<Customer[]>;
   
   // Piutang methods
   getPiutang(id: string): Promise<Piutang | undefined>;
@@ -116,8 +118,9 @@ export interface IStorage {
   getPiutangByCustomer(customerId: string): Promise<Piutang[]>;
   getAllPiutang(): Promise<Piutang[]>;
   createPiutang(piutang: InsertPiutang): Promise<Piutang>;
-  updatePiutangStatus(id: string, status: string, paidAmount?: number): Promise<Piutang | undefined>;
+  updatePiutangStatus(id: string, status: string, paidAmount?: string): Promise<Piutang | undefined>;
   deletePiutang(id: string): Promise<void>;
+  addPiutangPayment(piutangId: string, amount: string, description: string, userId: string): Promise<{piutang: Piutang, cashflow: Cashflow}>;
   
   sessionStore: SessionStore;
 }
@@ -724,17 +727,23 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async createCashflow(insertCashflow: InsertCashflow): Promise<Cashflow> {
+  async createCashflow(insertCashflow: InsertCashflow, createdBy?: string): Promise<Cashflow> {
     const id = randomUUID();
     const record: Cashflow = { 
       ...insertCashflow, 
       id,
       description: insertCashflow.description ?? null,
       date: insertCashflow.date ?? null,
+      // Customer and payment tracking fields
+      customerId: insertCashflow.customerId ?? null,
+      piutangId: insertCashflow.piutangId ?? null,
+      paymentStatus: insertCashflow.paymentStatus ?? "lunas",
       // Handle new fields for Pembelian Minyak
       jumlahGalon: insertCashflow.jumlahGalon ?? null,
       pajakOngkos: insertCashflow.pajakOngkos ?? null,
-      pajakTransfer: insertCashflow.pajakTransfer ?? "2500",
+      pajakTransfer: insertCashflow.type === TRANSACTION_TYPES.PEMBELIAN_MINYAK || insertCashflow.type === TRANSACTION_TYPES.PEMBELIAN_MINYAK_ALT 
+        ? (insertCashflow.pajakTransfer ?? "2500") 
+        : insertCashflow.pajakTransfer ?? null,
       totalPengeluaran: insertCashflow.totalPengeluaran ?? null,
       // Handle new fields for Transfer Rekening
       konter: insertCashflow.konter ?? null,
@@ -742,6 +751,26 @@ export class MemStorage implements IStorage {
       hasil: insertCashflow.hasil ?? null,
       createdAt: new Date() 
     };
+    
+    // Auto-create piutang for unpaid debt transactions
+    if (insertCashflow.type === TRANSACTION_TYPES.PEMBERIAN_UTANG && 
+        insertCashflow.paymentStatus === "belum_lunas" && 
+        insertCashflow.customerId) {
+      
+      const piutangData: InsertPiutang = {
+        customerId: insertCashflow.customerId,
+        storeId: insertCashflow.storeId,
+        amount: insertCashflow.amount,
+        description: insertCashflow.description || "Utang dari transaksi",
+        status: "belum_lunas",
+        paidAmount: "0",
+        createdBy: createdBy || "system"
+      };
+      
+      const piutang = await this.createPiutang(piutangData);
+      record.piutangId = piutang.id;
+    }
+    
     this.cashflowRecords.set(id, record);
     return record;
   }
@@ -950,6 +979,23 @@ export class MemStorage implements IStorage {
     this.customerRecords.delete(id);
   }
 
+  async searchCustomers(storeId: number, query: string): Promise<Customer[]> {
+    const customers = Array.from(this.customerRecords.values()).filter(
+      (customer) => customer.storeId === storeId
+    );
+    
+    if (!query.trim()) {
+      return customers;
+    }
+    
+    const searchTerm = query.toLowerCase();
+    return customers.filter((customer) =>
+      customer.name.toLowerCase().includes(searchTerm) ||
+      (customer.email && customer.email.toLowerCase().includes(searchTerm)) ||
+      (customer.phone && customer.phone.includes(searchTerm))
+    );
+  }
+
   // Piutang methods
   async getPiutang(id: string): Promise<Piutang | undefined> {
     return this.piutangRecords.get(id);
@@ -986,14 +1032,14 @@ export class MemStorage implements IStorage {
     return piutang;
   }
 
-  async updatePiutangStatus(id: string, status: string, paidAmount?: number): Promise<Piutang | undefined> {
+  async updatePiutangStatus(id: string, status: string, paidAmount?: string): Promise<Piutang | undefined> {
     const piutang = this.piutangRecords.get(id);
     if (piutang) {
       const updated = {
         ...piutang,
         status,
-        paidAmount: paidAmount ? paidAmount.toString() : piutang.paidAmount,
-        paidAt: status === 'lunas' ? new Date() : piutang.paidAt
+        paidAmount: paidAmount || piutang.paidAmount,
+        paidAt: status === 'lunas' ? new Date() : (status === 'belum_lunas' ? null : piutang.paidAt)
       };
       this.piutangRecords.set(id, updated);
       return updated;
@@ -1003,6 +1049,61 @@ export class MemStorage implements IStorage {
 
   async deletePiutang(id: string): Promise<void> {
     this.piutangRecords.delete(id);
+  }
+
+  async addPiutangPayment(piutangId: string, amount: string, description: string, userId: string): Promise<{piutang: Piutang, cashflow: Cashflow}> {
+    const piutang = this.piutangRecords.get(piutangId);
+    if (!piutang) {
+      throw new Error("Piutang not found");
+    }
+
+    const amountNum = parseFloat(amount);
+    
+    // Validate amount
+    if (amountNum <= 0) {
+      throw new Error("Payment amount must be greater than 0");
+    }
+
+    const currentPaidAmount = parseFloat(piutang.paidAmount || "0");
+    const totalAmount = parseFloat(piutang.amount);
+    const newPaidAmount = currentPaidAmount + amountNum;
+
+    // Prevent overpayment
+    if (newPaidAmount > totalAmount) {
+      throw new Error("Payment amount exceeds remaining debt");
+    }
+
+    // Determine payment status based on remaining amount
+    const remainingAmount = totalAmount - newPaidAmount;
+    const paymentStatus = remainingAmount <= 0 ? "lunas" : "belum_lunas";
+
+    // Create cashflow entry for payment
+    const cashflowData: InsertCashflow = {
+      storeId: piutang.storeId,
+      category: "Income",
+      type: TRANSACTION_TYPES.PEMBAYARAN_PIUTANG,
+      amount: amount,
+      description: description,
+      customerId: piutang.customerId,
+      piutangId: piutangId,
+      paymentStatus: paymentStatus
+    };
+    
+    const cashflow = await this.createCashflow(cashflowData, userId);
+
+    // Update piutang record
+    const newStatus = newPaidAmount >= totalAmount ? "lunas" : "belum_lunas";
+    const updatedPiutang = await this.updatePiutangStatus(
+      piutangId, 
+      newStatus, 
+      newPaidAmount.toString()
+    );
+
+    if (!updatedPiutang) {
+      throw new Error("Failed to update piutang status");
+    }
+
+    return { piutang: updatedPiutang, cashflow };
   }
 }
 
