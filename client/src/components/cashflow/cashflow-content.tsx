@@ -519,7 +519,7 @@ export default function CashflowContent() {
                     <span className={`font-semibold ${
                       entry.category === "Income" ? "text-green-600" : "text-red-600"
                     }`}>
-                      {entry.category === "Income" ? "+" : "-"}${parseFloat(entry.amount).toFixed(2)}
+                      {entry.category === "Income" ? "+" : "-"}Rp {parseInt(entry.amount).toLocaleString('id-ID')}
                     </span>
                     <Eye className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
@@ -598,7 +598,7 @@ export default function CashflowContent() {
                   <p className={`text-sm font-semibold ${
                     selectedEntry.category === "Income" ? "text-green-600" : "text-red-600"
                   }`} data-testid="text-entry-amount">
-                    {selectedEntry.category === "Income" ? "+" : "-"}${parseFloat(selectedEntry.amount).toFixed(2)}
+                    {selectedEntry.category === "Income" ? "+" : "-"}Rp {parseInt(selectedEntry.amount).toLocaleString('id-ID')}
                   </p>
                 </div>
               </div>
@@ -629,19 +629,19 @@ export default function CashflowContent() {
                     {selectedEntry.pajakOngkos && (
                       <div>
                         <p className="text-muted-foreground">Pajak Ongkos</p>
-                        <p className="font-medium" data-testid="text-pajak-ongkos">${parseFloat(selectedEntry.pajakOngkos).toFixed(2)}</p>
+                        <p className="font-medium" data-testid="text-pajak-ongkos">Rp {parseInt(selectedEntry.pajakOngkos).toLocaleString('id-ID')}</p>
                       </div>
                     )}
                     {selectedEntry.pajakTransfer && (
                       <div>
                         <p className="text-muted-foreground">Pajak Transfer</p>
-                        <p className="font-medium" data-testid="text-pajak-transfer">${parseFloat(selectedEntry.pajakTransfer).toFixed(2)}</p>
+                        <p className="font-medium" data-testid="text-pajak-transfer">Rp {parseInt(selectedEntry.pajakTransfer).toLocaleString('id-ID')}</p>
                       </div>
                     )}
                     {selectedEntry.totalPengeluaran && (
                       <div>
                         <p className="text-muted-foreground">Total Pengeluaran</p>
-                        <p className="font-semibold text-red-600" data-testid="text-total-pengeluaran">${parseFloat(selectedEntry.totalPengeluaran).toFixed(2)}</p>
+                        <p className="font-semibold text-red-600" data-testid="text-total-pengeluaran">Rp {parseInt(selectedEntry.totalPengeluaran).toLocaleString('id-ID')}</p>
                       </div>
                     )}
                   </div>
@@ -662,13 +662,13 @@ export default function CashflowContent() {
                     {selectedEntry.pajakTransferRekening !== undefined && (
                       <div>
                         <p className="text-muted-foreground">Pajak Transfer</p>
-                        <p className="font-medium" data-testid="text-pajak-transfer-rekening">${parseFloat(selectedEntry.pajakTransferRekening).toFixed(2)}</p>
+                        <p className="font-medium" data-testid="text-pajak-transfer-rekening">Rp {parseInt(selectedEntry.pajakTransferRekening).toLocaleString('id-ID')}</p>
                       </div>
                     )}
                     {selectedEntry.hasil !== undefined && (
                       <div className="col-span-2">
                         <p className="text-muted-foreground">Hasil</p>
-                        <p className="font-semibold text-green-600" data-testid="text-hasil">${parseFloat(selectedEntry.hasil).toFixed(2)}</p>
+                        <p className="font-semibold text-green-600" data-testid="text-hasil">Rp {parseInt(selectedEntry.hasil).toLocaleString('id-ID')}</p>
                       </div>
                     )}
                   </div>
