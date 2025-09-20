@@ -90,7 +90,7 @@ export default function CashflowContent() {
       return baseAmount;
     } else {
       // Round up
-      return baseAmount + 1000;
+      return baseAmount + 100;
     }
   };
 
