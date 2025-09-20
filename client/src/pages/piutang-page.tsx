@@ -93,9 +93,9 @@ export default function PiutangPage() {
   // Payment mutation using atomic endpoint
   const paymentMutation = useMutation({
     mutationFn: async ({ piutangId, amount }: { piutangId: string; amount: string }) => {
-      const res = await apiRequest("POST", "/api/piutang/payment", {
-        piutangId,
+      const res = await apiRequest("POST", `/api/piutang/${piutangId}/pay`, {
         amount,
+        description: "Installment payment", // Add required description field
       });
       return await res.json();
     },

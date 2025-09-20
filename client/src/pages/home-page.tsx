@@ -32,7 +32,7 @@ export default function HomePage() {
         return <SalesContent />;
       case "cashflow":
         return <CashflowContent />;
-      case "customer":
+      case "customers":
         return <CustomerPage />;
       case "piutang":
         return <PiutangPage />;
