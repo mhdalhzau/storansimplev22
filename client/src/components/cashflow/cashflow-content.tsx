@@ -52,10 +52,10 @@ export default function CashflowContent() {
   const watchType = form.watch("type");
   const watchJumlahGalon = form.watch("jumlahGalon");
 
-  // Helper function to round up pajak ongkos to nearest ten thousand
+  // Helper function to round up pajak ongkos using Excel formula: ROUNDUP(amount/5000)*5000
   const roundUpPajakOngkos = (amount: number): number => {
-    // Always round up to the nearest 10,000 (ten thousand)
-    return Math.ceil(amount / 10000) * 10000;
+    // Formula: ROUNDUP(amount/5000)*5000
+    return Math.ceil(amount / 5000) * 5000;
   };
 
   // Watch for changes in jumlahGalon when type is "Pembelian Minyak"
