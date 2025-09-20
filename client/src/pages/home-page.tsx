@@ -10,6 +10,7 @@ import PayrollContent from "@/components/payroll/payroll-content";
 import ProposalContent from "@/components/proposal/proposal-content";
 import OvertimeContent from "@/components/overtime/overtime-content";
 import EmployeeListPage from "@/pages/attendance/employee-list";
+import CustomerPage from "@/pages/customer-page";
 import SettingsContent from "@/components/settings/settings-content";
 
 export default function HomePage() {
@@ -30,6 +31,8 @@ export default function HomePage() {
         return <SalesContent />;
       case "cashflow":
         return <CashflowContent />;
+      case "customer":
+        return <CustomerPage />;
       case "payroll":
         return <PayrollContent />;
       case "proposal":
