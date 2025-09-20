@@ -49,8 +49,7 @@ export default function CustomerPage() {
         title: "Success",
         description: "Customer created successfully!",
       });
-      customerForm.reset();
-      setIsAddModalOpen(false);
+      closeModal();
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
     },
     onError: (error: Error) => {
@@ -73,8 +72,7 @@ export default function CustomerPage() {
         title: "Success",
         description: "Customer updated successfully!",
       });
-      customerForm.reset();
-      setEditingCustomer(null);
+      closeModal();
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
     },
     onError: (error: Error) => {
