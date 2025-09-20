@@ -91,6 +91,10 @@ export const cashflow = pgTable("cashflow", {
   type: text("type").notNull(), // 'Sales', 'Inventory', 'Utilities', 'Salary', 'Other', 'Pembelian Minyak', 'Transfer Rekening'
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   description: text("description"),
+  // Customer and payment tracking fields
+  customerId: varchar("customer_id"), // Link to customers table
+  piutangId: varchar("piutang_id"), // Link to piutang table
+  paymentStatus: text("payment_status").default("lunas"), // 'lunas', 'belum_lunas'
   // Fields for Pembelian Minyak
   jumlahGalon: decimal("jumlah_galon", { precision: 8, scale: 2 }), // Number of gallons
   pajakOngkos: decimal("pajak_ongkos", { precision: 10, scale: 2 }), // Tax fee (calculated)
@@ -228,6 +232,28 @@ export const insertSalesSchema = createInsertSchema(sales).omit({
 export const insertCashflowSchema = createInsertSchema(cashflow).omit({
   id: true,
   createdAt: true,
+}).extend({
+  paymentStatus: z.enum(["lunas", "belum_lunas"]).default("lunas"),
+}).superRefine((data, ctx) => {
+  // If creating a debt (Pemberian Utang), payment status is required
+  if (data.type === "Pemberian Utang") {
+    if (!data.paymentStatus) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Payment status is required for debt transactions",
+        path: ["paymentStatus"],
+      });
+    }
+    
+    // If unpaid status, customer is required
+    if (data.paymentStatus === "belum_lunas" && !data.customerId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Customer is required when creating unpaid debt",
+        path: ["customerId"],
+      });
+    }
+  }
 });
 
 export const insertPayrollSchema = createInsertSchema(payroll).omit({
