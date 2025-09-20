@@ -1,0 +1,213 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(210, 40%, 98%);
+  --foreground: hsl(222, 84%, 5%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(222, 84%, 5%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(222, 84%, 5%);
+  --primary: hsl(217, 91%, 60%);
+  --primary-foreground: hsl(0, 0%, 98%);
+  --secondary: hsl(210, 40%, 96%);
+  --secondary-foreground: hsl(215, 25%, 27%);
+  --muted: hsl(210, 40%, 96%);
+  --muted-foreground: hsl(215, 13%, 65%);
+  --accent: hsl(210, 40%, 96%);
+  --accent-foreground: hsl(222, 84%, 5%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --border: hsl(214, 32%, 91%);
+  --input: hsl(214, 32%, 91%);
+  --ring: hsl(217, 91%, 60%);
+  --chart-1: hsl(217, 91%, 60%);
+  --chart-2: hsl(159.7826, 100%, 36.0784%);
+  --chart-3: hsl(42.0290, 92.8251%, 56.2745%);
+  --chart-4: hsl(147.1429, 78.5047%, 41.9608%);
+  --chart-5: hsl(341.4894, 75.2000%, 50.9804%);
+  --sidebar: hsl(0, 0%, 100%);
+  --sidebar-foreground: hsl(222, 84%, 5%);
+  --sidebar-primary: hsl(217, 91%, 60%);
+  --sidebar-primary-foreground: hsl(0, 0%, 98%);
+  --sidebar-accent: hsl(210, 40%, 96%);
+  --sidebar-accent-foreground: hsl(222, 84%, 5%);
+  --sidebar-border: hsl(214, 32%, 91%);
+  --sidebar-ring: hsl(217, 91%, 60%);
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  --radius: 0.5rem;
+  --shadow-2xs: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00);
+  --shadow-xs: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00);
+  --shadow-sm: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00), 0px 1px 2px -1px hsl(217, 91%, 60%, 0.00);
+  --shadow: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00), 0px 1px 2px -1px hsl(217, 91%, 60%, 0.00);
+  --shadow-md: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00), 0px 2px 4px -1px hsl(217, 91%, 60%, 0.00);
+  --shadow-lg: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00), 0px 4px 6px -1px hsl(217, 91%, 60%, 0.00);
+  --shadow-xl: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00), 0px 8px 10px -1px hsl(217, 91%, 60%, 0.00);
+  --shadow-2xl: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+}
+
+.dark {
+  --background: hsl(0, 0%, 0%);
+  --foreground: hsl(200, 6.6667%, 91.1765%);
+  --card: hsl(228, 9.8039%, 10%);
+  --card-foreground: hsl(0, 0%, 85.0980%);
+  --popover: hsl(0, 0%, 0%);
+  --popover-foreground: hsl(200, 6.6667%, 91.1765%);
+  --primary: hsl(217, 91%, 60%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(195.0000, 15.3846%, 94.9020%);
+  --secondary-foreground: hsl(210, 25%, 7.8431%);
+  --muted: hsl(0, 0%, 9.4118%);
+  --muted-foreground: hsl(210, 3.3898%, 46.2745%);
+  --accent: hsl(205.7143, 70%, 7.8431%);
+  --accent-foreground: hsl(217, 91%, 60%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(210, 5.2632%, 14.9020%);
+  --input: hsl(207.6923, 27.6596%, 18.4314%);
+  --ring: hsl(217, 91%, 60%);
+  --chart-1: hsl(217, 91%, 60%);
+  --chart-2: hsl(159.7826, 100%, 36.0784%);
+  --chart-3: hsl(42.0290, 92.8251%, 56.2745%);
+  --chart-4: hsl(147.1429, 78.5047%, 41.9608%);
+  --chart-5: hsl(341.4894, 75.2000%, 50.9804%);
+  --sidebar: hsl(228, 9.8039%, 10%);
+  --sidebar-foreground: hsl(0, 0%, 85.0980%);
+  --sidebar-primary: hsl(217, 91%, 60%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(205.7143, 70%, 7.8431%);
+  --sidebar-accent-foreground: hsl(217, 91%, 60%);
+  --sidebar-border: hsl(205.7143, 15.7895%, 26.0784%);
+  --sidebar-ring: hsl(217, 91%, 60%);
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  --radius: 0.5rem;
+  --shadow-2xs: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00);
+  --shadow-xs: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00);
+  --shadow-sm: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00), 0px 1px 2px -1px hsl(217, 91%, 60%, 0.00);
+  --shadow: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00), 0px 1px 2px -1px hsl(217, 91%, 60%, 0.00);
+  --shadow-md: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00), 0px 2px 4px -1px hsl(217, 91%, 60%, 0.00);
+  --shadow-lg: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00), 0px 4px 6px -1px hsl(217, 91%, 60%, 0.00);
+  --shadow-xl: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00), 0px 8px 10px -1px hsl(217, 91%, 60%, 0.00);
+  --shadow-2xl: 0px 2px 0px 0px hsl(217, 91%, 60%, 0.00);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: Inter, system-ui, sans-serif;
+  }
+}
+
+/* Custom animations for toast notifications */
+.toast {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.2s ease-in;
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+  }
+  to { 
+    opacity: 1; 
+  }
+}
+
+/* Active menu styling */
+.active-menu {
+  @apply bg-accent text-accent-foreground;
+}
+
+/* Gradient background for auth page */
+.auth-gradient {
+  background: linear-gradient(135deg, hsl(217, 91%, 60%) 0%, hsl(250, 91%, 60%) 100%);
+}
+
+/* Status badge variants */
+.status-pending {
+  @apply bg-amber-100 text-amber-800;
+}
+
+.status-approved {
+  @apply bg-green-100 text-green-800;
+}
+
+.status-rejected {
+  @apply bg-red-100 text-red-800;
+}
+
+/* Export button variants */
+.export-pdf {
+  @apply bg-red-100 text-red-800 border-red-200 hover:bg-red-200;
+}
+
+.export-excel {
+  @apply bg-green-100 text-green-800 border-green-200 hover:bg-green-200;
+}
+
+/* Cashflow entry styling */
+.cashflow-income {
+  @apply bg-green-100 text-green-600;
+}
+
+.cashflow-expense {
+  @apply bg-red-100 text-red-600;
+}
+
+.cashflow-investment {
+  @apply bg-blue-100 text-blue-600;
+}
+
+/* Smooth transitions for interactive elements */
+.transition-all {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Focus ring styling for accessibility */
+.focus-visible {
+  @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
+}
+
+/* Custom scrollbar for tables and content areas */
+.custom-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground));
+  border-radius: 3px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary));
+}
