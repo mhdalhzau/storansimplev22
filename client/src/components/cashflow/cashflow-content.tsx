@@ -418,7 +418,7 @@ export default function CashflowContent() {
                     name="hasil"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Hasil</FormLabel>
+                        <FormLabel>Jumlah Transfer yang Masuk Rekening</FormLabel>
                         <FormControl>
                           <Input 
                             type="number" 
@@ -667,7 +667,7 @@ export default function CashflowContent() {
                     )}
                     {selectedEntry.hasil !== undefined && (
                       <div className="col-span-2">
-                        <p className="text-muted-foreground">Hasil</p>
+                        <p className="text-muted-foreground">Jumlah Transfer yang Masuk Rekening</p>
                         <p className="font-semibold text-green-600" data-testid="text-hasil">Rp {parseInt(selectedEntry.hasil).toLocaleString('id-ID')}</p>
                       </div>
                     )}
