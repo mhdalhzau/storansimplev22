@@ -2,17 +2,18 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { type Cashflow } from "@shared/schema";
-import { DollarSign, TrendingUp, TrendingDown } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Eye, Calendar, Hash, FileText } from "lucide-react";
 
 const cashflowSchema = z.object({
   category: z.enum(["Income", "Expense", "Investment"], {
@@ -38,6 +39,8 @@ type CashflowData = z.infer<typeof cashflowSchema>;
 
 export default function CashflowContent() {
   const { toast } = useToast();
+  const [selectedEntry, setSelectedEntry] = useState<Cashflow | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const form = useForm<CashflowData>({
     resolver: zodResolver(cashflowSchema),
@@ -476,7 +479,15 @@ export default function CashflowContent() {
           ) : cashflowRecords && cashflowRecords.length > 0 ? (
             <div className="space-y-4">
               {cashflowRecords.slice(0, 10).map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
+                <div 
+                  key={entry.id} 
+                  className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors group"
+                  onClick={() => {
+                    setSelectedEntry(entry);
+                    setIsDetailModalOpen(true);
+                  }}
+                  data-testid={`card-entry-${entry.id}`}
+                >
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${
                       entry.category === "Income" 
@@ -504,11 +515,14 @@ export default function CashflowContent() {
                       </p>
                     </div>
                   </div>
-                  <span className={`font-semibold ${
-                    entry.category === "Income" ? "text-green-600" : "text-red-600"
-                  }`}>
-                    {entry.category === "Income" ? "+" : "-"}${parseFloat(entry.amount).toFixed(2)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`font-semibold ${
+                      entry.category === "Income" ? "text-green-600" : "text-red-600"
+                    }`}>
+                      {entry.category === "Income" ? "+" : "-"}${parseFloat(entry.amount).toFixed(2)}
+                    </span>
+                    <Eye className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -521,6 +535,149 @@ export default function CashflowContent() {
           )}
         </CardContent>
       </Card>
+
+      {/* Entry Detail Modal */}
+      <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Entry Details
+            </DialogTitle>
+            <DialogDescription>
+              Detailed information about this cashflow entry
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedEntry && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                <div className={`p-2 rounded-lg ${
+                  selectedEntry.category === "Income" 
+                    ? "bg-green-100" 
+                    : selectedEntry.category === "Expense" 
+                    ? "bg-red-100" 
+                    : "bg-blue-100"
+                }`}>
+                  {selectedEntry.category === "Income" ? (
+                    <TrendingUp className={`h-5 w-5 ${
+                      selectedEntry.category === "Income" ? "text-green-600" : ""
+                    }`} />
+                  ) : (
+                    <TrendingDown className={`h-5 w-5 ${
+                      selectedEntry.category === "Expense" ? "text-red-600" : "text-blue-600"
+                    }`} />
+                  )}
+                </div>
+                <div>
+                  <p className="font-semibold text-lg">
+                    {selectedEntry.description || `${selectedEntry.category} - ${selectedEntry.type}`}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedEntry.category} • {selectedEntry.type}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                    <Hash className="h-3 w-3" />
+                    ID
+                  </p>
+                  <p className="text-sm font-mono bg-muted px-2 py-1 rounded" data-testid="text-entry-id">
+                    {selectedEntry.id}
+                  </p>
+                </div>
+                
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                    <DollarSign className="h-3 w-3" />
+                    Amount
+                  </p>
+                  <p className={`text-sm font-semibold ${
+                    selectedEntry.category === "Income" ? "text-green-600" : "text-red-600"
+                  }`} data-testid="text-entry-amount">
+                    {selectedEntry.category === "Income" ? "+" : "-"}${parseFloat(selectedEntry.amount).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
+              {selectedEntry.description && (
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                    <FileText className="h-3 w-3" />
+                    Description
+                  </p>
+                  <p className="text-sm p-2 bg-muted rounded" data-testid="text-entry-description">
+                    {selectedEntry.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Additional details for Pembelian Minyak */}
+              {selectedEntry.type === "Pembelian Minyak" && (
+                <div className="space-y-3 border-t pt-3">
+                  <h4 className="font-medium text-sm">Pembelian Minyak Details</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    {selectedEntry.jumlahGalon && (
+                      <div>
+                        <p className="text-muted-foreground">Jumlah Galon</p>
+                        <p className="font-medium" data-testid="text-jumlah-galon">{selectedEntry.jumlahGalon}</p>
+                      </div>
+                    )}
+                    {selectedEntry.pajakOngkos && (
+                      <div>
+                        <p className="text-muted-foreground">Pajak Ongkos</p>
+                        <p className="font-medium" data-testid="text-pajak-ongkos">${parseFloat(selectedEntry.pajakOngkos).toFixed(2)}</p>
+                      </div>
+                    )}
+                    {selectedEntry.pajakTransfer && (
+                      <div>
+                        <p className="text-muted-foreground">Pajak Transfer</p>
+                        <p className="font-medium" data-testid="text-pajak-transfer">${parseFloat(selectedEntry.pajakTransfer).toFixed(2)}</p>
+                      </div>
+                    )}
+                    {selectedEntry.totalPengeluaran && (
+                      <div>
+                        <p className="text-muted-foreground">Total Pengeluaran</p>
+                        <p className="font-semibold text-red-600" data-testid="text-total-pengeluaran">${parseFloat(selectedEntry.totalPengeluaran).toFixed(2)}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Additional details for Transfer Rekening */}
+              {selectedEntry.type === "Transfer Rekening" && (
+                <div className="space-y-3 border-t pt-3">
+                  <h4 className="font-medium text-sm">Transfer Rekening Details</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    {selectedEntry.konter && (
+                      <div>
+                        <p className="text-muted-foreground">Konter</p>
+                        <p className="font-medium" data-testid="text-konter">{selectedEntry.konter}</p>
+                      </div>
+                    )}
+                    {selectedEntry.pajakTransferRekening !== undefined && (
+                      <div>
+                        <p className="text-muted-foreground">Pajak Transfer</p>
+                        <p className="font-medium" data-testid="text-pajak-transfer-rekening">${parseFloat(selectedEntry.pajakTransferRekening).toFixed(2)}</p>
+                      </div>
+                    )}
+                    {selectedEntry.hasil !== undefined && (
+                      <div className="col-span-2">
+                        <p className="text-muted-foreground">Hasil</p>
+                        <p className="font-semibold text-green-600" data-testid="text-hasil">${parseFloat(selectedEntry.hasil).toFixed(2)}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
