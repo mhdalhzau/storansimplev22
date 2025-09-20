@@ -2,6 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,11 +18,16 @@ const cashflowSchema = z.object({
   category: z.enum(["Income", "Expense", "Investment"], {
     errorMap: () => ({ message: "Please select a category" })
   }),
-  type: z.enum(["Sales", "Inventory", "Utilities", "Salary", "Other"], {
+  type: z.enum(["Sales", "Inventory", "Utilities", "Salary", "Other", "Pembelian Minyak"], {
     errorMap: () => ({ message: "Please select a type" })
   }),
   amount: z.coerce.number().positive("Amount must be positive"),
   description: z.string().optional(),
+  // Additional fields for Pembelian Minyak
+  jumlahGalon: z.coerce.number().positive("Jumlah galon must be positive").optional(),
+  pajakOngkos: z.coerce.number().optional(),
+  pajakTransfer: z.coerce.number().optional(),
+  totalPengeluaran: z.coerce.number().optional(),
 });
 
 type CashflowData = z.infer<typeof cashflowSchema>;
@@ -36,8 +42,45 @@ export default function CashflowContent() {
       type: "Other",
       amount: 0,
       description: "",
+      jumlahGalon: 0,
+      pajakOngkos: 0,
+      pajakTransfer: 2500,
+      totalPengeluaran: 0,
     },
   });
+
+  const watchType = form.watch("type");
+  const watchJumlahGalon = form.watch("jumlahGalon");
+
+  // Helper function to round up pajak ongkos
+  const roundUpPajakOngkos = (amount: number): number => {
+    if (amount <= 96000) return 100000;
+    if (amount <= 154000) return 160000;
+    // For amounts above 154000, round up to the next 10000
+    return Math.ceil(amount / 10000) * 10000;
+  };
+
+  // Watch for changes in jumlahGalon when type is "Pembelian Minyak"
+  useEffect(() => {
+    if (watchType === "Pembelian Minyak" && watchJumlahGalon && watchJumlahGalon > 0) {
+      const baseAmount = watchJumlahGalon * 340000;
+      const rawPajakOngkos = watchJumlahGalon * 12000;
+      const pajakOngkos = roundUpPajakOngkos(rawPajakOngkos);
+      const pajakTransfer = 2500;
+      const totalPengeluaran = baseAmount + pajakOngkos + pajakTransfer;
+
+      form.setValue("amount", baseAmount);
+      form.setValue("pajakOngkos", pajakOngkos);
+      form.setValue("pajakTransfer", pajakTransfer);
+      form.setValue("totalPengeluaran", totalPengeluaran);
+    } else if (watchType !== "Pembelian Minyak") {
+      // Reset fields when type is not "Pembelian Minyak"
+      form.setValue("jumlahGalon", 0);
+      form.setValue("pajakOngkos", 0);
+      form.setValue("pajakTransfer", 2500);
+      form.setValue("totalPengeluaran", 0);
+    }
+  }, [watchType, watchJumlahGalon, form]);
 
   const { data: cashflowRecords, isLoading } = useQuery<Cashflow[]>({
     queryKey: ["/api/cashflow"],
@@ -122,6 +165,7 @@ export default function CashflowContent() {
                         <SelectItem value="Inventory">Inventory</SelectItem>
                         <SelectItem value="Utilities">Utilities</SelectItem>
                         <SelectItem value="Salary">Salary</SelectItem>
+                        <SelectItem value="Pembelian Minyak">Pembelian Minyak</SelectItem>
                         <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
                     </Select>
@@ -129,6 +173,29 @@ export default function CashflowContent() {
                   </FormItem>
                 )}
               />
+
+              {/* Conditional fields for Pembelian Minyak */}
+              {watchType === "Pembelian Minyak" && (
+                <FormField
+                  control={form.control}
+                  name="jumlahGalon"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Jumlah Galon</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.01"
+                          placeholder="0"
+                          data-testid="input-jumlah-galon"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}
@@ -142,6 +209,8 @@ export default function CashflowContent() {
                         step="0.01"
                         placeholder="0.00"
                         data-testid="input-amount"
+                        readOnly={watchType === "Pembelian Minyak"}
+                        className={watchType === "Pembelian Minyak" ? "bg-gray-50" : ""}
                         {...field} 
                       />
                     </FormControl>
@@ -149,6 +218,77 @@ export default function CashflowContent() {
                   </FormItem>
                 )}
               />
+
+              {/* Additional readonly fields for Pembelian Minyak */}
+              {watchType === "Pembelian Minyak" && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="pajakOngkos"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Pajak Ongkos</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            step="0.01"
+                            placeholder="0.00"
+                            data-testid="input-pajak-ongkos"
+                            readOnly
+                            className="bg-gray-50"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="pajakTransfer"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Pajak Transfer</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            step="0.01"
+                            placeholder="2500.00"
+                            data-testid="input-pajak-transfer"
+                            readOnly
+                            className="bg-gray-50"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="totalPengeluaran"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Total Pengeluaran</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            step="0.01"
+                            placeholder="0.00"
+                            data-testid="input-total-pengeluaran"
+                            readOnly
+                            className="bg-gray-50 font-semibold"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
 
               <FormField
                 control={form.control}
