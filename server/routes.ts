@@ -1756,13 +1756,30 @@ export function registerRoutes(app: Express): Server {
         return res.status(403).json({ message: "Forbidden" });
       }
       
-      // Check store authorization for non-admins
+      // Check store authorization for non-admins and get customer data
+      const customer = await storage.getCustomer(req.params.id);
+      if (!customer) return res.status(404).json({ message: "Customer not found" });
+      
       if (req.user.role !== 'administrasi') {
-        const customer = await storage.getCustomer(req.params.id);
-        if (!customer) return res.status(404).json({ message: "Customer not found" });
-        
         if (!(await hasStoreAccess(req.user, customer.storeId))) {
           return res.status(403).json({ message: "Cannot delete customers from stores you don't have access to" });
+        }
+      }
+      
+      // Check for related piutang records to prevent orphaned data
+      const relatedPiutang = await storage.getPiutangByCustomer(req.params.id);
+      if (relatedPiutang.length > 0) {
+        const unpaidCount = relatedPiutang.filter(p => p.status === 'belum_lunas').length;
+        if (unpaidCount > 0) {
+          return res.status(409).json({ 
+            message: `Cannot delete customer. Customer has ${unpaidCount} unpaid receivable record(s). Please settle all debts before deletion.`,
+            details: `Customer "${customer.name}" has outstanding receivables. Please complete all payments or transfer debts to another customer before deletion.`
+          });
+        } else {
+          return res.status(409).json({ 
+            message: `Cannot delete customer. Customer has ${relatedPiutang.length} paid receivable record(s) that must be preserved for audit purposes.`,
+            details: `Customer "${customer.name}" has payment history. Consider archiving instead of deletion to maintain financial records.`
+          });
         }
       }
       
@@ -2619,6 +2636,23 @@ export function registerRoutes(app: Express): Server {
       // Verify store access
       if (!(await hasStoreAccess(req.user, existingCustomer.storeId))) {
         return res.status(403).json({ message: "You don't have access to this customer" });
+      }
+
+      // Check for related piutang records to prevent orphaned data
+      const relatedPiutang = await storage.getPiutangByCustomer(req.params.id);
+      if (relatedPiutang.length > 0) {
+        const unpaidCount = relatedPiutang.filter(p => p.status === 'belum_lunas').length;
+        if (unpaidCount > 0) {
+          return res.status(409).json({ 
+            message: `Cannot delete customer. Customer has ${unpaidCount} unpaid receivable record(s). Please settle all debts before deletion.`,
+            details: `Customer "${existingCustomer.name}" has outstanding receivables. Please complete all payments or transfer debts to another customer before deletion.`
+          });
+        } else {
+          return res.status(409).json({ 
+            message: `Cannot delete customer. Customer has ${relatedPiutang.length} paid receivable record(s) that must be preserved for audit purposes.`,
+            details: `Customer "${existingCustomer.name}" has payment history. Consider archiving instead of deletion to maintain financial records.`
+          });
+        }
       }
 
       await storage.deleteCustomer(req.params.id);

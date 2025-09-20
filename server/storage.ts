@@ -112,6 +112,10 @@ export interface IStorage {
   deleteCustomer(id: string): Promise<void>;
   searchCustomers(storeId: number, query: string): Promise<Customer[]>;
   
+  // Helper methods for QRIS management
+  findOrCreateSakaCustomer(storeId: number): Promise<Customer>;
+  createQrisPiutangForSaka(salesRecord: Sales): Promise<void>;
+  
   // Piutang methods
   getPiutang(id: string): Promise<Piutang | undefined>;
   getPiutangByStore(storeId: number): Promise<Piutang[]>;
@@ -696,6 +700,13 @@ export class MemStorage implements IStorage {
       createdAt: new Date() 
     };
     this.salesRecords.set(id, record);
+
+    // Auto-create piutang for QRIS payments to customer "Saka"
+    const qrisAmount = parseFloat(record.totalQris || "0");
+    if (qrisAmount > 0) {
+      await this.createQrisPiutangForSaka(record);
+    }
+
     return record;
   }
 
@@ -1104,6 +1115,68 @@ export class MemStorage implements IStorage {
     }
 
     return { piutang: updatedPiutang, cashflow };
+  }
+
+  // Helper methods for QRIS management
+  async findOrCreateSakaCustomer(storeId: number): Promise<Customer> {
+    // Check if "Saka" customer already exists for this store
+    const existingCustomer = Array.from(this.customerRecords.values()).find(
+      customer => customer.name.toLowerCase() === 'saka' && customer.storeId === storeId
+    );
+
+    if (existingCustomer) {
+      return existingCustomer;
+    }
+
+    // Create new "Saka" customer for QRIS management
+    const sakaCustomer: InsertCustomer = {
+      name: "Saka",
+      email: "saka@qris.management",
+      phone: null,
+      address: "QRIS Payment Management",
+      type: "customer",
+      storeId: storeId
+    };
+
+    return await this.createCustomer(sakaCustomer);
+  }
+
+  async createQrisPiutangForSaka(salesRecord: Sales): Promise<void> {
+    const qrisAmount = parseFloat(salesRecord.totalQris || "0");
+    if (qrisAmount <= 0) return;
+
+    // Find or create Saka customer
+    const sakaCustomer = await this.findOrCreateSakaCustomer(salesRecord.storeId);
+
+    // Create piutang record for QRIS amount
+    const piutangData: InsertPiutang = {
+      customerId: sakaCustomer.id,
+      storeId: salesRecord.storeId,
+      amount: salesRecord.totalQris || "0",
+      description: `QRIS Payment from Sales ${salesRecord.id} - ${new Date(salesRecord.date).toLocaleDateString('id-ID')}`,
+      dueDate: null,
+      status: "belum_lunas",
+      paidAmount: "0",
+      paidAt: null,
+      createdBy: salesRecord.userId || "system"
+    };
+
+    const piutang = await this.createPiutang(piutangData);
+
+    // Create cashflow entry for QRIS piutang
+    const cashflowData: InsertCashflow = {
+      storeId: salesRecord.storeId,
+      category: "Income",
+      type: "QRIS Piutang",
+      amount: salesRecord.totalQris || "0",
+      description: `QRIS Piutang - Customer: Saka (${sakaCustomer.name}) - Sales: ${salesRecord.id}`,
+      customerId: sakaCustomer.id,
+      piutangId: piutang.id,
+      paymentStatus: "belum_lunas",
+      date: salesRecord.date
+    };
+
+    await this.createCashflow(cashflowData);
   }
 }
 
