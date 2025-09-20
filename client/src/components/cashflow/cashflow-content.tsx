@@ -124,29 +124,24 @@ export default function CashflowContent() {
     if (watchType === "Transfer Rekening" && watchAmount && watchAmount > 0) {
       if (watchKonter === "Dia store") {
         const pajakTransferRekening = calculateTransferTax(watchAmount);
-        const totalPengeluaran = watchAmount + pajakTransferRekening;
-        const rawResult = totalPengeluaran - pajakTransferRekening;
+        const rawResult = watchAmount - pajakTransferRekening;
         const hasil = roundResult(rawResult);
 
         form.setValue("pajakTransferRekening", pajakTransferRekening);
-        form.setValue("totalPengeluaran", totalPengeluaran);
         form.setValue("hasil", hasil);
       }
       // For manual, user will input pajakTransferRekening manually
       // Calculate hasil when pajakTransferRekening changes
       const currentPajak = form.getValues("pajakTransferRekening") || 0;
       if (watchKonter === "manual" && currentPajak >= 0) {
-        const totalPengeluaran = watchAmount + currentPajak;
-        const rawResult = totalPengeluaran - currentPajak;
+        const rawResult = watchAmount - currentPajak;
         const hasil = roundResult(rawResult);
-        form.setValue("totalPengeluaran", totalPengeluaran);
         form.setValue("hasil", hasil);
       }
     } else if (watchType !== "Transfer Rekening") {
       // Reset fields when type is not "Transfer Rekening"
       form.setValue("konter", "Dia store");
       form.setValue("pajakTransferRekening", 0);
-      form.setValue("totalPengeluaran", 0);
       form.setValue("hasil", 0);
     }
   }, [watchType, watchAmount, watchKonter, form]);
