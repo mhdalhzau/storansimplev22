@@ -12,7 +12,9 @@ import {
   Store,
   UserCheck,
   Settings,
-  LogOut 
+  LogOut,
+  Contact,
+  Receipt 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +53,18 @@ const menuItems: MenuItem[] = [
     id: "cashflow",
     label: "Cashflow",
     icon: <DollarSign className="w-5 h-5" />,
+    allowedRoles: ["manager", "administrasi"],
+  },
+  {
+    id: "customers",
+    label: "Customers",
+    icon: <Contact className="w-5 h-5" />,
+    allowedRoles: ["manager", "administrasi"],
+  },
+  {
+    id: "piutang",
+    label: "Piutang (A/R)",
+    icon: <Receipt className="w-5 h-5" />,
     allowedRoles: ["manager", "administrasi"],
   },
   {
