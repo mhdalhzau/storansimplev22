@@ -2487,6 +2487,341 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Customer routes
+  app.get("/api/customers", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+      const { storeId } = req.query;
+      const targetStoreId = storeId ? parseInt(storeId as string) : await getUserFirstStoreId(req.user);
+
+      if (!targetStoreId) {
+        return res.status(400).json({ message: "Store ID is required" });
+      }
+
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, targetStoreId))) {
+        return res.status(403).json({ message: "You don't have access to this store" });
+      }
+
+      const customers = await storage.getCustomersByStore(targetStoreId);
+      res.json(customers);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/customers/search", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+      const { storeId, q } = req.query;
+      const targetStoreId = storeId ? parseInt(storeId as string) : await getUserFirstStoreId(req.user);
+
+      if (!targetStoreId) {
+        return res.status(400).json({ message: "Store ID is required" });
+      }
+
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, targetStoreId))) {
+        return res.status(403).json({ message: "You don't have access to this store" });
+      }
+
+      const customers = await storage.searchCustomers(targetStoreId, q as string || "");
+      res.json(customers);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/customers", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+      // Only managers and administrators can create customers
+      if (!['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const targetStoreId = req.body.storeId || await getUserFirstStoreId(req.user);
+
+      if (!targetStoreId) {
+        return res.status(400).json({ message: "Store ID is required" });
+      }
+
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, targetStoreId))) {
+        return res.status(403).json({ message: "You don't have access to this store" });
+      }
+
+      const data = insertCustomerSchema.parse({
+        ...req.body,
+        storeId: targetStoreId,
+      });
+
+      const customer = await storage.createCustomer(data);
+      res.status(201).json(customer);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/customers/:id", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+      // Only managers and administrators can update customers
+      if (!['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Get existing customer to verify access
+      const existingCustomer = await storage.getCustomer(req.params.id);
+      if (!existingCustomer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, existingCustomer.storeId))) {
+        return res.status(403).json({ message: "You don't have access to this customer" });
+      }
+
+      // Validate update data - exclude storeId to prevent unauthorized store transfers
+      const updateSchema = insertCustomerSchema.omit({ storeId: true }).partial();
+      const validatedData = updateSchema.parse(req.body);
+
+      const updatedCustomer = await storage.updateCustomer(req.params.id, validatedData);
+      if (!updatedCustomer) {
+        return res.status(404).json({ message: "Failed to update customer" });
+      }
+
+      res.json(updatedCustomer);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/customers/:id", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+      // Only managers and administrators can delete customers
+      if (!['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Get existing customer to verify access
+      const existingCustomer = await storage.getCustomer(req.params.id);
+      if (!existingCustomer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, existingCustomer.storeId))) {
+        return res.status(403).json({ message: "You don't have access to this customer" });
+      }
+
+      await storage.deleteCustomer(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Piutang routes
+  app.get("/api/piutang", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+      const { storeId, customerId } = req.query;
+      const targetStoreId = storeId ? parseInt(storeId as string) : await getUserFirstStoreId(req.user);
+
+      if (!targetStoreId) {
+        return res.status(400).json({ message: "Store ID is required" });
+      }
+
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, targetStoreId))) {
+        return res.status(403).json({ message: "You don't have access to this store" });
+      }
+
+      let piutangRecords;
+      if (customerId) {
+        // Verify customer belongs to accessible store
+        const customer = await storage.getCustomer(customerId as string);
+        if (!customer) {
+          return res.status(404).json({ message: "Customer not found" });
+        }
+        
+        // Verify access to customer's store
+        if (!(await hasStoreAccess(req.user, customer.storeId))) {
+          return res.status(403).json({ message: "You don't have access to this customer's piutang" });
+        }
+        
+        piutangRecords = await storage.getPiutangByCustomer(customerId as string);
+      } else {
+        piutangRecords = await storage.getPiutangByStore(targetStoreId);
+      }
+
+      res.json(piutangRecords);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/piutang", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+      // Only managers and administrators can create piutang
+      if (!['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const targetStoreId = req.body.storeId || await getUserFirstStoreId(req.user);
+
+      if (!targetStoreId) {
+        return res.status(400).json({ message: "Store ID is required" });
+      }
+
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, targetStoreId))) {
+        return res.status(403).json({ message: "You don't have access to this store" });
+      }
+
+      const data = insertPiutangSchema.parse({
+        ...req.body,
+        storeId: targetStoreId,
+      });
+
+      const piutang = await storage.createPiutang(data);
+      res.status(201).json(piutang);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/piutang/:id", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+      // Only managers and administrators can update piutang
+      if (!['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Get existing piutang to verify access
+      const existingPiutang = await storage.getPiutang(req.params.id);
+      if (!existingPiutang) {
+        return res.status(404).json({ message: "Piutang not found" });
+      }
+
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, existingPiutang.storeId))) {
+        return res.status(403).json({ message: "You don't have access to this piutang" });
+      }
+
+      const { status } = req.body;
+
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+
+      // Only allow status changes - all payment modifications must go through /pay endpoint
+      const updatedPiutang = await storage.updatePiutangStatus(req.params.id, status);
+      if (!updatedPiutang) {
+        return res.status(404).json({ message: "Failed to update piutang" });
+      }
+
+      res.json(updatedPiutang);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/piutang/:id", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+      // Only managers and administrators can delete piutang
+      if (!['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Get existing piutang to verify access
+      const existingPiutang = await storage.getPiutang(req.params.id);
+      if (!existingPiutang) {
+        return res.status(404).json({ message: "Piutang not found" });
+      }
+
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, existingPiutang.storeId))) {
+        return res.status(403).json({ message: "You don't have access to this piutang" });
+      }
+
+      await storage.deletePiutang(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Piutang payment endpoint - this is the key atomic operation
+  app.post("/api/piutang/:id/pay", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+      // Only managers and administrators can process payments
+      if (!['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Get existing piutang to verify access
+      const existingPiutang = await storage.getPiutang(req.params.id);
+      if (!existingPiutang) {
+        return res.status(404).json({ message: "Piutang not found" });
+      }
+
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, existingPiutang.storeId))) {
+        return res.status(403).json({ message: "You don't have access to this piutang" });
+      }
+
+      const { amount, description } = req.body;
+
+      if (!amount || !description) {
+        return res.status(400).json({ message: "Amount and description are required" });
+      }
+
+      // Validate amount is a valid number string
+      const amountNum = parseFloat(amount);
+      if (isNaN(amountNum) || amountNum <= 0) {
+        return res.status(400).json({ message: "Amount must be a valid positive number" });
+      }
+
+      try {
+        // Call the atomic payment processing method
+        const result = await storage.addPiutangPayment(
+          req.params.id,
+          amount.toString(),
+          description,
+          req.user.id
+        );
+
+        res.status(201).json({
+          message: "Payment processed successfully",
+          piutang: result.piutang,
+          cashflow: result.cashflow
+        });
+      } catch (paymentError: any) {
+        // Handle specific payment errors (overpayment, invalid amounts, etc.)
+        res.status(400).json({ message: paymentError.message });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: "Internal server error", details: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
