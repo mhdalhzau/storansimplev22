@@ -10,10 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { type Cashflow } from "@shared/schema";
-import { DollarSign, TrendingUp, TrendingDown, Eye, Calendar, Hash, FileText } from "lucide-react";
+import { type Cashflow, type Customer, insertCustomerSchema } from "@shared/schema";
+import { DollarSign, TrendingUp, TrendingDown, Eye, Calendar, Hash, FileText, Plus, User } from "lucide-react";
 
 // Define transaction types by category
 const incomeTypes = [
@@ -55,6 +57,9 @@ const cashflowSchema = z.object({
   }),
   amount: z.coerce.number().positive("Amount must be positive").transform(val => val.toString()),
   description: z.string().optional(),
+  // Payment status and customer fields
+  paymentStatus: z.enum(["lunas", "belum_lunas"]).optional(),
+  customerId: z.string().optional(),
   // Additional fields for Pembelian Minyak
   jumlahGalon: z.coerce.number().positive("Jumlah galon must be positive").optional().transform(val => val?.toString()),
   pajakOngkos: z.coerce.number().optional().transform(val => val?.toString()),
@@ -64,6 +69,15 @@ const cashflowSchema = z.object({
   konter: z.enum(["Dia store", "manual"]).optional(),
   pajakTransferRekening: z.coerce.number().optional().transform(val => val?.toString()),
   hasil: z.coerce.number().optional().transform(val => val?.toString()),
+}).refine((data) => {
+  // Conditional validation: customer required for "Pemberian Utang" when belum_lunas
+  if (data.type === "Pemberian Utang" && data.paymentStatus === "belum_lunas") {
+    return !!data.customerId;
+  }
+  return true;
+}, {
+  message: "Customer selection is required for unpaid debt transactions",
+  path: ["customerId"]
 });
 
 type CashflowData = z.infer<typeof cashflowSchema>;
@@ -72,6 +86,8 @@ export default function CashflowContent() {
   const { toast } = useToast();
   const [selectedEntry, setSelectedEntry] = useState<Cashflow | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState("");
 
   const form = useForm<CashflowData>({
     resolver: zodResolver(cashflowSchema),
@@ -80,6 +96,8 @@ export default function CashflowContent() {
       type: "Pengeluaran Lain-lain",
       amount: 0,
       description: "",
+      paymentStatus: "lunas",
+      customerId: "",
       jumlahGalon: 0,
       pajakOngkos: 0,
       pajakTransfer: 2500,
@@ -95,6 +113,7 @@ export default function CashflowContent() {
   const watchJumlahGalon = form.watch("jumlahGalon");
   const watchKonter = form.watch("konter");
   const watchAmount = form.watch("amount");
+  const watchPaymentStatus = form.watch("paymentStatus");
 
   // Helper functions to identify special transaction types (with legacy compatibility)
   const isPembelianMinyak = (type: string) => {
@@ -103,6 +122,10 @@ export default function CashflowContent() {
 
   const isTransferRekening = (type: string) => {
     return type === "Penjualan (Transfer rekening)" || type === "Transfer Rekening";
+  };
+
+  const requiresCustomer = (type: string) => {
+    return type === "Pemberian Utang";
   };
 
   // Helper function to round up pajak ongkos using Excel formula: ROUNDUP(amount/5000)*5000
@@ -210,6 +233,37 @@ export default function CashflowContent() {
     queryKey: ["/api/cashflow"],
   });
 
+  // Customer queries
+  const { data: customers = [] } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+  });
+
+  // Customer search query
+  const { data: searchResults = [] } = useQuery<Customer[]>({
+    queryKey: ["/api/customers/search", customerSearchTerm],
+    queryFn: async ({ queryKey }) => {
+      const [url, searchTerm] = queryKey;
+      const res = await apiRequest("GET", `${url}?q=${encodeURIComponent(searchTerm as string)}`);
+      return await res.json();
+    },
+    enabled: customerSearchTerm.length > 0,
+  });
+
+  // Filter customers based on search term
+  const filteredCustomers = customerSearchTerm.length > 0 ? searchResults : customers;
+
+  // Customer creation form
+  const customerForm = useForm<z.infer<typeof insertCustomerSchema>>({
+    resolver: zodResolver(insertCustomerSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      address: "",
+      type: "customer",
+    },
+  });
+
   const submitCashflowMutation = useMutation({
     mutationFn: async (data: CashflowData) => {
       const res = await apiRequest("POST", "/api/cashflow", data);
@@ -232,8 +286,39 @@ export default function CashflowContent() {
     },
   });
 
+  // Customer creation mutation
+  const createCustomerMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof insertCustomerSchema>) => {
+      const res = await apiRequest("POST", "/api/customers", data);
+      return await res.json();
+    },
+    onSuccess: (newCustomer: Customer) => {
+      toast({
+        title: "Success",
+        description: "Customer created successfully!",
+      });
+      customerForm.reset();
+      setIsAddCustomerModalOpen(false);
+      // Set the newly created customer as selected
+      form.setValue("customerId", newCustomer.id);
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers/search"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: CashflowData) => {
     submitCashflowMutation.mutate(data);
+  };
+
+  const onSubmitCustomer = (data: z.infer<typeof insertCustomerSchema>) => {
+    createCustomerMutation.mutate(data);
   };
 
   return (
@@ -300,6 +385,101 @@ export default function CashflowContent() {
                   </FormItem>
                 )}
               />
+
+              {/* Payment Status - only show for relevant transaction types */}
+              {requiresCustomer(watchType) && (
+                <FormField
+                  control={form.control}
+                  name="paymentStatus"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment Status</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          className="flex flex-row space-x-6"
+                          data-testid="radio-payment-status"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="lunas" id="lunas" />
+                            <Label htmlFor="lunas">Lunas (Paid)</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="belum_lunas" id="belum_lunas" />
+                            <Label htmlFor="belum_lunas">Belum Lunas (Unpaid)</Label>
+                          </div>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {/* Customer Selection - required for unpaid debt transactions */}
+              {requiresCustomer(watchType) && watchPaymentStatus === "belum_lunas" && (
+                <FormField
+                  control={form.control}
+                  name="customerId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer *</FormLabel>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-customer">
+                                <SelectValue placeholder="Select customer" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <div className="p-2">
+                                <Input
+                                  placeholder="Search customers..."
+                                  value={customerSearchTerm}
+                                  onChange={(e) => setCustomerSearchTerm(e.target.value)}
+                                  className="mb-2"
+                                  data-testid="input-customer-search"
+                                />
+                              </div>
+                              {filteredCustomers.length > 0 ? (
+                                filteredCustomers.map((customer) => (
+                                  <SelectItem key={customer.id} value={customer.id}>
+                                    <div className="flex items-center gap-2">
+                                      <User className="h-4 w-4" />
+                                      <div>
+                                        <div className="font-medium">{customer.name}</div>
+                                        <div className="text-sm text-muted-foreground">
+                                          {customer.email || customer.phone || "No contact info"}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="p-2 text-sm text-muted-foreground">
+                                  No customers found
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setIsAddCustomerModalOpen(true)}
+                          data-testid="button-add-customer"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               {/* Conditional fields for Pembelian Minyak */}
               {isPembelianMinyak(watchType) && (
@@ -742,6 +922,118 @@ export default function CashflowContent() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Customer Creation Modal */}
+      <Dialog open={isAddCustomerModalOpen} onOpenChange={setIsAddCustomerModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Add New Customer
+            </DialogTitle>
+            <DialogDescription>
+              Create a new customer for your debt transactions
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...customerForm}>
+            <form onSubmit={customerForm.handleSubmit(onSubmitCustomer)} className="space-y-4">
+              <FormField
+                control={customerForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Customer Name *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Enter customer name"
+                        data-testid="input-customer-name"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={customerForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="email"
+                        placeholder="Enter email address"
+                        data-testid="input-customer-email"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={customerForm.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Enter phone number"
+                        data-testid="input-customer-phone"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={customerForm.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Enter customer address"
+                        data-testid="input-customer-address"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setIsAddCustomerModalOpen(false)}
+                  data-testid="button-cancel-customer"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="flex-1"
+                  disabled={createCustomerMutation.isPending}
+                  data-testid="button-save-customer"
+                >
+                  {createCustomerMutation.isPending ? "Saving..." : "Save Customer"}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
