@@ -18,7 +18,7 @@ const cashflowSchema = z.object({
   category: z.enum(["Income", "Expense", "Investment"], {
     errorMap: () => ({ message: "Please select a category" })
   }),
-  type: z.enum(["Sales", "Inventory", "Utilities", "Salary", "Other", "Pembelian Minyak"], {
+  type: z.enum(["Sales", "Inventory", "Utilities", "Salary", "Other", "Pembelian Minyak", "Transfer Rekening"], {
     errorMap: () => ({ message: "Please select a type" })
   }),
   amount: z.coerce.number().positive("Amount must be positive"),
@@ -28,6 +28,10 @@ const cashflowSchema = z.object({
   pajakOngkos: z.coerce.number().optional(),
   pajakTransfer: z.coerce.number().optional(),
   totalPengeluaran: z.coerce.number().optional(),
+  // Additional fields for Transfer Rekening
+  konter: z.enum(["Dia store", "manual"]).optional(),
+  pajakTransferRekening: z.coerce.number().optional(),
+  hasil: z.coerce.number().optional(),
 });
 
 type CashflowData = z.infer<typeof cashflowSchema>;
@@ -46,16 +50,48 @@ export default function CashflowContent() {
       pajakOngkos: 0,
       pajakTransfer: 2500,
       totalPengeluaran: 0,
+      konter: "Dia store",
+      pajakTransferRekening: 0,
+      hasil: 0,
     },
   });
 
   const watchType = form.watch("type");
   const watchJumlahGalon = form.watch("jumlahGalon");
+  const watchKonter = form.watch("konter");
+  const watchAmount = form.watch("amount");
 
   // Helper function to round up pajak ongkos using Excel formula: ROUNDUP(amount/5000)*5000
   const roundUpPajakOngkos = (amount: number): number => {
     // Formula: ROUNDUP(amount/5000)*5000
     return Math.ceil(amount / 5000) * 5000;
+  };
+
+  // Helper function to calculate transfer account tax based on amount
+  const calculateTransferTax = (amount: number): number => {
+    if (amount >= 5000 && amount <= 149000) return 2000;
+    if (amount >= 150000 && amount <= 499000) return 3000;
+    if (amount >= 500000 && amount <= 999000) return 5000;
+    if (amount >= 1000000 && amount <= 4999000) return 7000;
+    if (amount >= 5000000 && amount <= 9999000) return 10000;
+    if (amount >= 10000000 && amount <= 24999000) return 15000;
+    if (amount >= 25000000 && amount <= 49999000) return 20000;
+    if (amount >= 50000000) return 25000;
+    return 0; // Default for amounts below 5000
+  };
+
+  // Helper function to round result with special logic
+  const roundResult = (amount: number): number => {
+    const lastThreeDigits = amount % 1000;
+    const baseAmount = Math.floor(amount / 1000) * 1000;
+    
+    if (lastThreeDigits <= 500) {
+      // Round down
+      return baseAmount;
+    } else {
+      // Round up
+      return baseAmount + 1000;
+    }
   };
 
   // Watch for changes in jumlahGalon when type is "Pembelian Minyak"
@@ -79,6 +115,33 @@ export default function CashflowContent() {
       form.setValue("totalPengeluaran", 0);
     }
   }, [watchType, watchJumlahGalon, form]);
+
+  // Watch for changes in Transfer Rekening calculations
+  useEffect(() => {
+    if (watchType === "Transfer Rekening" && watchAmount && watchAmount > 0) {
+      if (watchKonter === "Dia store") {
+        const pajakTransferRekening = calculateTransferTax(watchAmount);
+        const rawResult = watchAmount - pajakTransferRekening;
+        const hasil = roundResult(rawResult);
+
+        form.setValue("pajakTransferRekening", pajakTransferRekening);
+        form.setValue("hasil", hasil);
+      }
+      // For manual, user will input pajakTransferRekening manually
+      // Calculate hasil when pajakTransferRekening changes
+      const currentPajak = form.getValues("pajakTransferRekening") || 0;
+      if (watchKonter === "manual" && currentPajak >= 0) {
+        const rawResult = watchAmount - currentPajak;
+        const hasil = roundResult(rawResult);
+        form.setValue("hasil", hasil);
+      }
+    } else if (watchType !== "Transfer Rekening") {
+      // Reset fields when type is not "Transfer Rekening"
+      form.setValue("konter", "Dia store");
+      form.setValue("pajakTransferRekening", 0);
+      form.setValue("hasil", 0);
+    }
+  }, [watchType, watchAmount, watchKonter, form]);
 
   const { data: cashflowRecords, isLoading } = useQuery<Cashflow[]>({
     queryKey: ["/api/cashflow"],
@@ -164,6 +227,7 @@ export default function CashflowContent() {
                         <SelectItem value="Utilities">Utilities</SelectItem>
                         <SelectItem value="Salary">Salary</SelectItem>
                         <SelectItem value="Pembelian Minyak">Pembelian Minyak</SelectItem>
+                        <SelectItem value="Transfer Rekening">Transfer Rekening</SelectItem>
                         <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
                     </Select>
@@ -276,6 +340,88 @@ export default function CashflowContent() {
                             step="0.01"
                             placeholder="0.00"
                             data-testid="input-total-pengeluaran"
+                            readOnly
+                            className="bg-gray-50 font-semibold"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
+
+              {/* Conditional fields for Transfer Rekening */}
+              {watchType === "Transfer Rekening" && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="konter"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Konter</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-konter">
+                              <SelectValue placeholder="Select konter" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Dia store">Dia store</SelectItem>
+                            <SelectItem value="manual">Manual</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="pajakTransferRekening"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Pajak Transfer Rekening</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            step="0.01"
+                            placeholder="0.00"
+                            data-testid="input-pajak-transfer-rekening"
+                            readOnly={watchKonter === "Dia store"}
+                            className={watchKonter === "Dia store" ? "bg-gray-50" : ""}
+                            {...field} 
+                            onChange={(e) => {
+                              field.onChange(e);
+                              // Trigger recalculation for manual mode
+                              if (watchKonter === "manual") {
+                                const amount = form.getValues("amount") || 0;
+                                const pajak = parseFloat(e.target.value) || 0;
+                                const rawResult = amount - pajak;
+                                const hasil = roundResult(rawResult);
+                                form.setValue("hasil", hasil);
+                              }
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="hasil"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Hasil</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            step="0.01"
+                            placeholder="0.00"
+                            data-testid="input-hasil"
                             readOnly
                             className="bg-gray-50 font-semibold"
                             {...field} 

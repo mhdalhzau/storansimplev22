@@ -736,6 +736,10 @@ export class MemStorage implements IStorage {
       pajakOngkos: insertCashflow.pajakOngkos ?? null,
       pajakTransfer: insertCashflow.pajakTransfer ?? "2500",
       totalPengeluaran: insertCashflow.totalPengeluaran ?? null,
+      // Handle new fields for Transfer Rekening
+      konter: insertCashflow.konter ?? null,
+      pajakTransferRekening: insertCashflow.pajakTransferRekening ?? null,
+      hasil: insertCashflow.hasil ?? null,
       createdAt: new Date() 
     };
     this.cashflowRecords.set(id, record);

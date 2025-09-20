@@ -88,7 +88,7 @@ export const cashflow = pgTable("cashflow", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   storeId: integer("store_id").notNull(),
   category: text("category").notNull(), // 'Income', 'Expense', 'Investment'
-  type: text("type").notNull(), // 'Sales', 'Inventory', 'Utilities', 'Salary', 'Other', 'Pembelian Minyak'
+  type: text("type").notNull(), // 'Sales', 'Inventory', 'Utilities', 'Salary', 'Other', 'Pembelian Minyak', 'Transfer Rekening'
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   description: text("description"),
   // Fields for Pembelian Minyak
@@ -96,6 +96,10 @@ export const cashflow = pgTable("cashflow", {
   pajakOngkos: decimal("pajak_ongkos", { precision: 10, scale: 2 }), // Tax fee (calculated)
   pajakTransfer: decimal("pajak_transfer", { precision: 10, scale: 2 }).default("2500"), // Transfer tax (fixed 2500)
   totalPengeluaran: decimal("total_pengeluaran", { precision: 12, scale: 2 }), // Total expenses
+  // Fields for Transfer Rekening
+  konter: text("konter"), // 'Dia store', 'manual'
+  pajakTransferRekening: decimal("pajak_transfer_rekening", { precision: 10, scale: 2 }), // Transfer account tax
+  hasil: decimal("hasil", { precision: 12, scale: 2 }), // Result (amount - tax, rounded)
   date: timestamp("date").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
 });
