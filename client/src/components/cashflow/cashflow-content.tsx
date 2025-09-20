@@ -15,11 +15,42 @@ import { useToast } from "@/hooks/use-toast";
 import { type Cashflow } from "@shared/schema";
 import { DollarSign, TrendingUp, TrendingDown, Eye, Calendar, Hash, FileText } from "lucide-react";
 
+// Define transaction types by category
+const incomeTypes = [
+  "Penjualan (Transfer rekening)",
+  "Pendapatan Jasa/Komisi", 
+  "Penambahan Modal",
+  "Penagihan Utang/Cicilan",
+  "Terima Pinjaman",
+  "Transaksi Agen Pembayaran (Income)",
+  "Pendapatan Di Luar Usaha",
+  "Pendapatan Lain-lain"
+] as const;
+
+const expenseTypes = [
+  "Pembelian stok (Pembelian Minyak)",
+  "Pembelian bahan baku",
+  "Biaya operasional", 
+  "Gaji/Bonus Karyawan",
+  "Pemberian Utang",
+  "Transaksi Agen Pembayaran (Expense)",
+  "Pembayaran Utang/Cicilan",
+  "Pengeluaran usaha untuk membayar utang/cicilan",
+  "Pengeluaran Di Luar Usaha",
+  "Pengeluaran Lain-lain"
+] as const;
+
+const investmentTypes = [
+  "Investasi Lain-lain"
+] as const;
+
+const allTypes = [...incomeTypes, ...expenseTypes, ...investmentTypes] as const;
+
 const cashflowSchema = z.object({
   category: z.enum(["Income", "Expense", "Investment"], {
     errorMap: () => ({ message: "Please select a category" })
   }),
-  type: z.enum(["Sales", "Inventory", "Utilities", "Salary", "Other", "Pembelian Minyak", "Transfer Rekening"], {
+  type: z.enum(allTypes, {
     errorMap: () => ({ message: "Please select a type" })
   }),
   amount: z.coerce.number().positive("Amount must be positive").transform(val => val.toString()),
@@ -46,7 +77,7 @@ export default function CashflowContent() {
     resolver: zodResolver(cashflowSchema),
     defaultValues: {
       category: "Expense",
-      type: "Other",
+      type: "Pengeluaran Lain-lain",
       amount: 0,
       description: "",
       jumlahGalon: 0,
@@ -60,9 +91,19 @@ export default function CashflowContent() {
   });
 
   const watchType = form.watch("type");
+  const watchCategory = form.watch("category");
   const watchJumlahGalon = form.watch("jumlahGalon");
   const watchKonter = form.watch("konter");
   const watchAmount = form.watch("amount");
+
+  // Helper functions to identify special transaction types (with legacy compatibility)
+  const isPembelianMinyak = (type: string) => {
+    return type === "Pembelian stok (Pembelian Minyak)" || type === "Pembelian Minyak";
+  };
+
+  const isTransferRekening = (type: string) => {
+    return type === "Penjualan (Transfer rekening)" || type === "Transfer Rekening";
+  };
 
   // Helper function to round up pajak ongkos using Excel formula: ROUNDUP(amount/5000)*5000
   const roundUpPajakOngkos = (amount: number): number => {
@@ -97,9 +138,9 @@ export default function CashflowContent() {
     }
   };
 
-  // Watch for changes in jumlahGalon when type is "Pembelian Minyak"
+  // Watch for changes in jumlahGalon when type is "Pembelian stok (Pembelian Minyak)"
   useEffect(() => {
-    if (watchType === "Pembelian Minyak" && watchJumlahGalon && watchJumlahGalon > 0) {
+    if (isPembelianMinyak(watchType) && watchJumlahGalon && watchJumlahGalon > 0) {
       const baseAmount = watchJumlahGalon * 340000;
       const rawPajakOngkos = watchJumlahGalon * 12000;
       const pajakOngkos = roundUpPajakOngkos(rawPajakOngkos);
@@ -110,8 +151,8 @@ export default function CashflowContent() {
       form.setValue("pajakOngkos", pajakOngkos);
       form.setValue("pajakTransfer", pajakTransfer);
       form.setValue("totalPengeluaran", totalPengeluaran);
-    } else if (watchType !== "Pembelian Minyak") {
-      // Reset fields when type is not "Pembelian Minyak"
+    } else if (!isPembelianMinyak(watchType)) {
+      // Reset fields when type is not "Pembelian stok (Pembelian Minyak)"
       form.setValue("jumlahGalon", 0);
       form.setValue("pajakOngkos", 0);
       form.setValue("pajakTransfer", 2500);
@@ -121,7 +162,7 @@ export default function CashflowContent() {
 
   // Watch for changes in Transfer Rekening calculations
   useEffect(() => {
-    if (watchType === "Transfer Rekening" && watchAmount && watchAmount > 0) {
+    if (isTransferRekening(watchType) && watchAmount && watchAmount > 0) {
       if (watchKonter === "Dia store") {
         const pajakTransferRekening = calculateTransferTax(watchAmount);
         const rawResult = watchAmount - pajakTransferRekening;
@@ -138,13 +179,32 @@ export default function CashflowContent() {
         const hasil = roundResult(rawResult);
         form.setValue("hasil", hasil);
       }
-    } else if (watchType !== "Transfer Rekening") {
-      // Reset fields when type is not "Transfer Rekening"
+    } else if (!isTransferRekening(watchType)) {
+      // Reset fields when type is not "Penjualan (Transfer rekening)"
       form.setValue("konter", "Dia store");
       form.setValue("pajakTransferRekening", 0);
       form.setValue("hasil", 0);
     }
   }, [watchType, watchAmount, watchKonter, form]);
+
+  // Watch for category changes to reset type and related fields
+  useEffect(() => {
+    if (watchCategory === "Income") {
+      form.setValue("type", "Pendapatan Lain-lain");
+    } else if (watchCategory === "Expense") {
+      form.setValue("type", "Pengeluaran Lain-lain");
+    } else if (watchCategory === "Investment") {
+      form.setValue("type", "Investasi Lain-lain");
+    }
+    // Reset special fields
+    form.setValue("jumlahGalon", 0);
+    form.setValue("pajakOngkos", 0);
+    form.setValue("pajakTransfer", 2500);
+    form.setValue("totalPengeluaran", 0);
+    form.setValue("konter", "Dia store");
+    form.setValue("pajakTransferRekening", 0);
+    form.setValue("hasil", 0);
+  }, [watchCategory, form]);
 
   const { data: cashflowRecords, isLoading } = useQuery<Cashflow[]>({
     queryKey: ["/api/cashflow"],
@@ -225,13 +285,15 @@ export default function CashflowContent() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Sales">Sales</SelectItem>
-                        <SelectItem value="Inventory">Inventory</SelectItem>
-                        <SelectItem value="Utilities">Utilities</SelectItem>
-                        <SelectItem value="Salary">Salary</SelectItem>
-                        <SelectItem value="Pembelian Minyak">Pembelian Minyak</SelectItem>
-                        <SelectItem value="Transfer Rekening">Transfer Rekening</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
+                        {watchCategory === "Income" && incomeTypes.map((type) => (
+                          <SelectItem key={type} value={type}>{type}</SelectItem>
+                        ))}
+                        {watchCategory === "Expense" && expenseTypes.map((type) => (
+                          <SelectItem key={type} value={type}>{type}</SelectItem>
+                        ))}
+                        {watchCategory === "Investment" && investmentTypes.map((type) => (
+                          <SelectItem key={type} value={type}>{type}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -240,7 +302,7 @@ export default function CashflowContent() {
               />
 
               {/* Conditional fields for Pembelian Minyak */}
-              {watchType === "Pembelian Minyak" && (
+              {isPembelianMinyak(watchType) && (
                 <FormField
                   control={form.control}
                   name="jumlahGalon"
@@ -274,8 +336,8 @@ export default function CashflowContent() {
                         step="0.01"
                         placeholder="0.00"
                         data-testid="input-amount"
-                        readOnly={watchType === "Pembelian Minyak"}
-                        className={watchType === "Pembelian Minyak" ? "bg-gray-50" : ""}
+                        readOnly={isPembelianMinyak(watchType)}
+                        className={isPembelianMinyak(watchType) ? "bg-gray-50" : ""}
                         {...field} 
                       />
                     </FormControl>
@@ -285,7 +347,7 @@ export default function CashflowContent() {
               />
 
               {/* Additional readonly fields for Pembelian Minyak */}
-              {watchType === "Pembelian Minyak" && (
+              {isPembelianMinyak(watchType) && (
                 <>
                   <FormField
                     control={form.control}
@@ -356,7 +418,7 @@ export default function CashflowContent() {
               )}
 
               {/* Conditional fields for Transfer Rekening */}
-              {watchType === "Transfer Rekening" && (
+              {isTransferRekening(watchType) && (
                 <>
                   <FormField
                     control={form.control}
@@ -620,7 +682,7 @@ export default function CashflowContent() {
               )}
 
               {/* Additional details for Pembelian Minyak */}
-              {selectedEntry.type === "Pembelian Minyak" && (
+              {(selectedEntry.type === "Pembelian Minyak" || selectedEntry.type === "Pembelian stok (Pembelian Minyak)") && (
                 <div className="space-y-3 border-t pt-3">
                   <h4 className="font-medium text-sm">Pembelian Minyak Details</h4>
                   <div className="grid grid-cols-2 gap-4 text-sm">
@@ -653,7 +715,7 @@ export default function CashflowContent() {
               )}
 
               {/* Additional details for Transfer Rekening */}
-              {selectedEntry.type === "Transfer Rekening" && (
+              {(selectedEntry.type === "Transfer Rekening" || selectedEntry.type === "Penjualan (Transfer rekening)") && (
                 <div className="space-y-3 border-t pt-3">
                   <h4 className="font-medium text-sm">Transfer Rekening Details</h4>
                   <div className="grid grid-cols-2 gap-4 text-sm">
