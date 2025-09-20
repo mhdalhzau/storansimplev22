@@ -519,7 +519,11 @@ export default function CashflowContent() {
                     <span className={`font-semibold ${
                       entry.category === "Income" ? "text-green-600" : "text-red-600"
                     }`}>
-                      {entry.category === "Income" ? "+" : "-"}Rp {parseInt(entry.amount).toLocaleString('id-ID')}
+                      {entry.category === "Income" ? "+" : "-"}Rp {parseInt(
+                        entry.category === "Expense" && entry.totalPengeluaran 
+                          ? entry.totalPengeluaran 
+                          : entry.amount
+                      ).toLocaleString('id-ID')}
                     </span>
                     <Eye className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
