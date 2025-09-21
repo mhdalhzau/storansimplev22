@@ -1494,31 +1494,32 @@ export default function SalesContent() {
           </CardTitle>
         </div>
         
-        {/* Store-based tabs for Sales Reports and Cashflow */}
-        <Tabs defaultValue="store-1" className="w-full mt-4">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="store-1" data-testid="tab-store-1">
+        {/* Separate tabs for Sales Reports and Cashflow by store */}
+        <Tabs defaultValue="sales-store-1" className="w-full mt-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="sales-store-1" data-testid="tab-sales-store-1">
               <TrendingUp className="h-4 w-4 mr-2" />
-              Main Store (ID: 1)
+              Sales - Main Store
             </TabsTrigger>
-            <TabsTrigger value="store-2" data-testid="tab-store-2">
+            <TabsTrigger value="sales-store-2" data-testid="tab-sales-store-2">
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Sales - Branch Store
+            </TabsTrigger>
+            <TabsTrigger value="cashflow-store-1" data-testid="tab-cashflow-store-1">
               <DollarSign className="h-4 w-4 mr-2" />
-              Branch Store (ID: 2)
+              Cashflow - Main Store
+            </TabsTrigger>
+            <TabsTrigger value="cashflow-store-2" data-testid="tab-cashflow-store-2">
+              <DollarSign className="h-4 w-4 mr-2" />
+              Cashflow - Branch Store
             </TabsTrigger>
           </TabsList>
           
-          {/* Main Store Content */}
-          <TabsContent value="store-1" className="space-y-4">
+          {/* Sales Reports - Main Store */}
+          <TabsContent value="sales-store-1" className="space-y-4">
             <div className="mb-4">
-              <h3 className="text-lg font-semibold mb-2">Main Store - Sales Reports & Cash Flow</h3>
+              <h3 className="text-lg font-semibold mb-2">Sales Reports - Main Store (ID: 1)</h3>
             </div>
-            
-            {/* Sales Reports Section */}
-            <div className="space-y-4">
-              <h4 className="text-md font-medium flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Sales Reports
-              </h4>
             <div className="flex gap-3">
               <Input
                 type="date"
@@ -1929,29 +1930,13 @@ export default function SalesContent() {
                 </div>
               )}
               
-              {/* Cash Flow Section for Main Store */}
-              <div className="mt-8 space-y-4">
-                <h4 className="text-md font-medium flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  Cash Flow
-                </h4>
-                <StoreCashflowContent storeId={1} />
-              </div>
-            </div>
         </TabsContent>
 
-          {/* Branch Store Content */}
-          <TabsContent value="store-2" className="space-y-4">
+          {/* Sales Reports - Branch Store */}
+          <TabsContent value="sales-store-2" className="space-y-4">
             <div className="mb-4">
-              <h3 className="text-lg font-semibold mb-2">Branch Store - Sales Reports & Cash Flow</h3>
+              <h3 className="text-lg font-semibold mb-2">Sales Reports - Branch Store (ID: 2)</h3>
             </div>
-            
-            {/* Sales Reports Section */}
-            <div className="space-y-4">
-              <h4 className="text-md font-medium flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Sales Reports
-              </h4>
               
               <div className="flex gap-3">
                 <Input
@@ -2084,15 +2069,22 @@ export default function SalesContent() {
                 </div>
               )}
               
-              {/* Cash Flow Section for Branch Store */}
-              <div className="mt-8 space-y-4">
-                <h4 className="text-md font-medium flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  Cash Flow
-                </h4>
-                <StoreCashflowContent storeId={2} />
-              </div>
+          </TabsContent>
+          
+          {/* Cashflow - Main Store */}
+          <TabsContent value="cashflow-store-1" className="space-y-4">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold mb-2">Cash Flow - Main Store (ID: 1)</h3>
             </div>
+            <StoreCashflowContent storeId={1} />
+          </TabsContent>
+          
+          {/* Cashflow - Branch Store */}
+          <TabsContent value="cashflow-store-2" className="space-y-4">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold mb-2">Cash Flow - Branch Store (ID: 2)</h3>
+            </div>
+            <StoreCashflowContent storeId={2} />
           </TabsContent>
         </Tabs>
       </CardHeader>
