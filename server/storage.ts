@@ -1150,31 +1150,20 @@ export class MemStorage implements IStorage {
     const managerCustomer = await this.findOrCreateManagerCustomer(salesRecord.storeId);
 
     // Create piutang: manager owes store the QRIS amount
+    // Income will only be recorded when manager pays this piutang
     const piutangData: InsertPiutang = {
       customerId: managerCustomer.id,
       storeId: salesRecord.storeId,
       amount: salesRecord.totalQris || "0",
-      description: `Piutang QRIS dari Manager - Sales: ${salesRecord.id} - ${new Date(salesRecord.date).toLocaleDateString('id-ID')} - Uang masih di rekening pribadi manager`,
+      description: `Piutang QRIS dari Manager - Sales: ${salesRecord.id} - ${new Date(salesRecord.date).toLocaleDateString('id-ID')} - Menunggu transfer dari rekening pribadi manager ke toko`,
       status: "belum_lunas",
       paidAmount: "0",
       createdBy: salesRecord.userId || "system"
     };
 
     await this.createPiutang(piutangData);
-
-    // Also record the income for the store (even though money is still in manager's account)
-    const incomeData: InsertCashflow = {
-      storeId: salesRecord.storeId,
-      category: "Income",
-      type: "QRIS Payment",
-      amount: salesRecord.totalQris || "0",
-      description: `QRIS Payment Income - Sales: ${salesRecord.id} - ${new Date(salesRecord.date).toLocaleDateString('id-ID')} (Uang masih di rekening manager)`,
-      customerId: managerCustomer.id,
-      paymentStatus: "lunas",
-      date: salesRecord.date
-    };
-
-    await this.createCashflow(incomeData, salesRecord.userId || "system");
+    
+    // NO income created here - income only created when manager pays the piutang
   }
 }
 
