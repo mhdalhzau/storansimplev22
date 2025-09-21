@@ -113,8 +113,8 @@ export interface IStorage {
   searchCustomers(storeId: number, query: string): Promise<Customer[]>;
   
   // Helper methods for QRIS management
-  findOrCreateSakaCustomer(storeId: number): Promise<Customer>;
-  createQrisPiutangForSaka(salesRecord: Sales): Promise<void>;
+  findOrCreatePiutangManager(storeId: number): Promise<Customer>;
+  createQrisExpenseForManager(salesRecord: Sales): Promise<void>;
   
   // Piutang methods
   getPiutang(id: string): Promise<Piutang | undefined>;
@@ -701,10 +701,10 @@ export class MemStorage implements IStorage {
     };
     this.salesRecords.set(id, record);
 
-    // Auto-create piutang for QRIS payments to customer "Saka"
+    // Auto-create expense for QRIS payments to piutang manager
     const qrisAmount = parseFloat(record.totalQris || "0");
     if (qrisAmount > 0) {
-      await this.createQrisPiutangForSaka(record);
+      await this.createQrisExpenseForManager(record);
     }
 
     return record;
@@ -1118,65 +1118,49 @@ export class MemStorage implements IStorage {
   }
 
   // Helper methods for QRIS management
-  async findOrCreateSakaCustomer(storeId: number): Promise<Customer> {
-    // Check if "Saka" customer already exists for this store
+  async findOrCreatePiutangManager(storeId: number): Promise<Customer> {
+    // Check if "Piutang Manager" customer already exists for this store
     const existingCustomer = Array.from(this.customerRecords.values()).find(
-      customer => customer.name.toLowerCase() === 'saka' && customer.storeId === storeId
+      customer => customer.name.toLowerCase() === 'piutang manager' && customer.storeId === storeId
     );
 
     if (existingCustomer) {
       return existingCustomer;
     }
 
-    // Create new "Saka" customer for QRIS management
-    const sakaCustomer: InsertCustomer = {
-      name: "Saka",
-      email: "saka@qris.management",
+    // Create new "Piutang Manager" customer for QRIS expense management
+    const piutangManagerCustomer: InsertCustomer = {
+      name: "Piutang Manager",
+      email: "piutang.manager@company.internal",
       phone: null,
-      address: "QRIS Payment Management",
-      type: "customer",
+      address: "Internal Company Account - QRIS Expense Management",
+      type: "employee",
       storeId: storeId
     };
 
-    return await this.createCustomer(sakaCustomer);
+    return await this.createCustomer(piutangManagerCustomer);
   }
 
-  async createQrisPiutangForSaka(salesRecord: Sales): Promise<void> {
+  async createQrisExpenseForManager(salesRecord: Sales): Promise<void> {
     const qrisAmount = parseFloat(salesRecord.totalQris || "0");
     if (qrisAmount <= 0) return;
 
-    // Find or create Saka customer
-    const sakaCustomer = await this.findOrCreateSakaCustomer(salesRecord.storeId);
+    // Find or create Piutang Manager customer
+    const piutangManagerCustomer = await this.findOrCreatePiutangManager(salesRecord.storeId);
 
-    // Create piutang record for QRIS amount
-    const piutangData: InsertPiutang = {
-      customerId: sakaCustomer.id,
-      storeId: salesRecord.storeId,
-      amount: salesRecord.totalQris || "0",
-      description: `QRIS Payment from Sales ${salesRecord.id} - ${new Date(salesRecord.date).toLocaleDateString('id-ID')}`,
-      dueDate: null,
-      status: "belum_lunas",
-      paidAmount: "0",
-      paidAt: null,
-      createdBy: salesRecord.userId || "system"
-    };
-
-    const piutang = await this.createPiutang(piutangData);
-
-    // Create cashflow entry for QRIS piutang
+    // Create cashflow entry as company expense to piutang manager
     const cashflowData: InsertCashflow = {
       storeId: salesRecord.storeId,
-      category: "Income",
-      type: "QRIS Piutang",
+      category: "Expense",
+      type: "QRIS Manager Expense",
       amount: salesRecord.totalQris || "0",
-      description: `QRIS Piutang - Customer: Saka (${sakaCustomer.name}) - Sales: ${salesRecord.id}`,
-      customerId: sakaCustomer.id,
-      piutangId: piutang.id,
-      paymentStatus: "belum_lunas",
+      description: `QRIS Payment Expense to Piutang Manager - Sales: ${salesRecord.id} - ${new Date(salesRecord.date).toLocaleDateString('id-ID')}`,
+      customerId: piutangManagerCustomer.id,
+      paymentStatus: "lunas",
       date: salesRecord.date
     };
 
-    await this.createCashflow(cashflowData);
+    await this.createCashflow(cashflowData, salesRecord.userId || "system");
   }
 }
 

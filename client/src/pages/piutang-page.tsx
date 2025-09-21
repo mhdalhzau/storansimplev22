@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Users, DollarSign, ChevronDown, ChevronRight, Receipt, Calendar, AlertCircle, CheckCircle, Search } from "lucide-react";
+import { Plus, Users, DollarSign, ChevronDown, ChevronRight, Receipt, Calendar, AlertCircle, CheckCircle, Search, AlertTriangle, UserCheck } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
@@ -181,6 +181,38 @@ export default function PiutangPage() {
 
   const calculateRemainingDebt = (piutang: Piutang) => {
     return parseFloat(piutang.amount) - parseFloat(piutang.paidAmount || "0");
+  };
+
+  const isInternalEmployee = (customer: Customer) => {
+    return customer.type === "employee";
+  };
+
+  const getInternalWarningBadge = (customer: Customer, remainingDebt: number) => {
+    if (!isInternalEmployee(customer) || remainingDebt <= 0) return null;
+    
+    return (
+      <Badge variant="destructive" className="bg-orange-100 text-orange-800 border-orange-300">
+        <AlertTriangle className="h-3 w-3 mr-1" />
+        Internal Employee Debt
+      </Badge>
+    );
+  };
+
+  const getCustomerTypeBadge = (customer: Customer) => {
+    if (isInternalEmployee(customer)) {
+      return (
+        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
+          <UserCheck className="h-3 w-3 mr-1" />
+          Employee
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="bg-gray-50 text-gray-700">
+        <Users className="h-3 w-3 mr-1" />
+        Customer
+      </Badge>
+    );
   };
 
   const getStatusBadge = (piutang: Piutang) => {
@@ -385,9 +417,13 @@ export default function PiutangPage() {
                           <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100" data-testid={`text-customer-name-${item.customer.id}`}>
-                            {item.customer.name}
-                          </h3>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100" data-testid={`text-customer-name-${item.customer.id}`}>
+                              {item.customer.name}
+                            </h3>
+                            {getCustomerTypeBadge(item.customer)}
+                            {getInternalWarningBadge(item.customer, item.remainingDebt)}
+                          </div>
                           <div className="flex gap-4 text-sm text-gray-600 dark:text-gray-400">
                             <span data-testid={`text-total-debt-${item.customer.id}`}>
                               Total Debt: {formatRupiah(item.totalDebt)}
@@ -396,6 +432,14 @@ export default function PiutangPage() {
                               Remaining: {formatRupiah(item.remainingDebt)}
                             </span>
                           </div>
+                          {isInternalEmployee(item.customer) && item.remainingDebt > 0 && (
+                            <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-md">
+                              <p className="text-sm text-orange-800 flex items-center gap-1">
+                                <AlertTriangle className="h-4 w-4" />
+                                <strong>Warning:</strong> This is an internal employee with outstanding debt. Please follow company policy for employee receivables.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
