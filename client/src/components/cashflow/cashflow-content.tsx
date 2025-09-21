@@ -240,8 +240,15 @@ export default function CashflowContent() {
     form.setValue("hasil", 0);
   }, [watchCategory, form]);
 
+  // Get current store ID from active tab
+  const currentStoreId = activeTab === "store-1" ? 1 : 2;
+
   const { data: cashflowRecords, isLoading } = useQuery<Cashflow[]>({
-    queryKey: ["/api/cashflow"],
+    queryKey: ["/api/cashflow", { storeId: currentStoreId }],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/cashflow?storeId=${currentStoreId}`);
+      return await res.json();
+    },
   });
 
   // Customer queries
@@ -286,7 +293,7 @@ export default function CashflowContent() {
         description: "Cashflow entry saved successfully!",
       });
       form.reset();
-      queryClient.invalidateQueries({ queryKey: ["/api/cashflow"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cashflow", { storeId: currentStoreId }] });
     },
     onError: (error: Error) => {
       toast({
