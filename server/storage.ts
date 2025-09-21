@@ -24,6 +24,8 @@ import {
   type InsertCustomer,
   type Piutang,
   type InsertPiutang,
+  type Wallet,
+  type InsertWallet,
   TRANSACTION_TYPES
 } from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -126,6 +128,15 @@ export interface IStorage {
   deletePiutang(id: string): Promise<void>;
   addPiutangPayment(piutangId: string, amount: string, description: string, userId: string): Promise<{piutang: Piutang, cashflow: Cashflow}>;
   
+  // Wallet methods
+  getWallet(id: string): Promise<Wallet | undefined>;
+  getWalletsByStore(storeId: number): Promise<Wallet[]>;
+  getAllWallets(): Promise<Wallet[]>;
+  createWallet(wallet: InsertWallet): Promise<Wallet>;
+  updateWallet(id: string, data: Partial<InsertWallet>): Promise<Wallet | undefined>;
+  updateWalletBalance(id: string, balance: string): Promise<Wallet | undefined>;
+  deleteWallet(id: string): Promise<void>;
+  
   sessionStore: SessionStore;
 }
 
@@ -142,6 +153,7 @@ export class MemStorage implements IStorage {
   private setoranRecords: Map<string, Setoran>;
   private customerRecords: Map<string, Customer>;
   private piutangRecords: Map<string, Piutang>;
+  private walletRecords: Map<string, Wallet>;
   public sessionStore: SessionStore;
 
   constructor() {
@@ -157,6 +169,7 @@ export class MemStorage implements IStorage {
     this.setoranRecords = new Map();
     this.customerRecords = new Map();
     this.piutangRecords = new Map();
+    this.walletRecords = new Map();
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000,
@@ -164,6 +177,7 @@ export class MemStorage implements IStorage {
     
     // Initialize with sample stores
     this.initializeSampleData();
+    this.initializeSampleWallets();
   }
 
   private async initializeSampleData() {
@@ -413,6 +427,58 @@ export class MemStorage implements IStorage {
     this.salesRecords.set(hafizSales.id, hafizSales);
     this.salesRecords.set(endangSales.id, endangSales);
     this.salesRecords.set(putriYesterday.id, putriYesterday);
+  }
+
+  private async initializeSampleWallets() {
+    // Create sample wallets for each store
+    const stores = await this.getAllStores();
+    
+    for (const store of stores) {
+      // Bank BCA
+      const bcaWallet: Wallet = {
+        id: randomUUID(),
+        storeId: store.id,
+        name: "Bank BCA",
+        type: "bank",
+        balance: "5000000",
+        accountNumber: "1234567890",
+        description: "Rekening utama Bank BCA",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      this.walletRecords.set(bcaWallet.id, bcaWallet);
+
+      // Cash
+      const cashWallet: Wallet = {
+        id: randomUUID(),
+        storeId: store.id,
+        name: "Kas Tunai",
+        type: "cash",
+        balance: "500000",
+        accountNumber: null,
+        description: "Kas tunai toko",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      this.walletRecords.set(cashWallet.id, cashWallet);
+
+      // E-Wallet
+      const eWallet: Wallet = {
+        id: randomUUID(),
+        storeId: store.id,
+        name: "OVO",
+        type: "ewallet",
+        balance: "250000",
+        accountNumber: "08123456789",
+        description: "E-Wallet OVO toko",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      this.walletRecords.set(eWallet.id, eWallet);
+    }
   }
 
   // User methods
@@ -1238,6 +1304,81 @@ export class MemStorage implements IStorage {
     await this.createPiutang(piutangData);
     
     // NO income created here - income only created when manager pays the piutang
+  }
+
+  // Wallet methods
+  async getWallet(id: string): Promise<Wallet | undefined> {
+    return this.walletRecords.get(id);
+  }
+
+  async getWalletsByStore(storeId: number): Promise<Wallet[]> {
+    return Array.from(this.walletRecords.values()).filter(
+      (wallet) => wallet.storeId === storeId && wallet.isActive
+    );
+  }
+
+  async getAllWallets(): Promise<Wallet[]> {
+    return Array.from(this.walletRecords.values()).filter(
+      (wallet) => wallet.isActive
+    );
+  }
+
+  async createWallet(insertWallet: InsertWallet): Promise<Wallet> {
+    const id = randomUUID();
+    const wallet: Wallet = {
+      ...insertWallet,
+      id,
+      balance: insertWallet.balance ?? "0",
+      accountNumber: insertWallet.accountNumber ?? null,
+      description: insertWallet.description ?? null,
+      isActive: insertWallet.isActive ?? true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    this.walletRecords.set(id, wallet);
+    return wallet;
+  }
+
+  async updateWallet(id: string, data: Partial<InsertWallet>): Promise<Wallet | undefined> {
+    const wallet = this.walletRecords.get(id);
+    if (wallet) {
+      const updated = { 
+        ...wallet, 
+        ...data, 
+        updatedAt: new Date() 
+      };
+      this.walletRecords.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  async updateWalletBalance(id: string, balance: string): Promise<Wallet | undefined> {
+    const wallet = this.walletRecords.get(id);
+    if (wallet) {
+      const updated = { 
+        ...wallet, 
+        balance, 
+        updatedAt: new Date() 
+      };
+      this.walletRecords.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  async deleteWallet(id: string): Promise<void> {
+    const wallet = this.walletRecords.get(id);
+    if (wallet) {
+      // Soft delete by setting isActive to false
+      const updated = { 
+        ...wallet, 
+        isActive: false, 
+        updatedAt: new Date() 
+      };
+      this.walletRecords.set(id, updated);
+    }
   }
 }
 

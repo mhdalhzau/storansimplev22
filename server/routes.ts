@@ -1483,20 +1483,190 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Dashboard stats
+  // Dashboard stats with Bank Balance (Wallet Simulator)
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
       if (!req.user) return res.status(401).json({ message: "Unauthorized" });
       
-      // Mock dashboard stats
+      // Get accessible store IDs for this user
+      const accessibleStoreIds = await getAccessibleStoreIds(req.user);
+      
+      // Calculate monthly cashflow data (current month only)
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      
+      let totalIncome = 0;
+      let totalExpenses = 0;
+      let totalWalletBalance = 0;
+      
+      for (const storeId of accessibleStoreIds) {
+        // Get cashflow records for this store
+        const cashflowRecords = await storage.getCashflowByStore(storeId);
+        
+        for (const record of cashflowRecords) {
+          const recordDate = new Date(record.date || record.createdAt);
+          
+          // Only include records from current month
+          if (recordDate >= startOfMonth && recordDate <= endOfMonth) {
+            const amount = parseFloat(record.amount || "0");
+            if (record.category === "Income") {
+              totalIncome += amount;
+            } else if (record.category === "Expense") {
+              totalExpenses += amount;
+            }
+          }
+        }
+        
+        // Get wallet balances for this store
+        const wallets = await storage.getWalletsByStore(storeId);
+        for (const wallet of wallets) {
+          totalWalletBalance += parseFloat(wallet.balance || "0");
+        }
+      }
+      
+      // Calculate profit/loss
+      const profit = totalIncome - totalExpenses;
+      
+      // Get recent proposals count
+      let pendingProposals = 0;
+      for (const storeId of accessibleStoreIds) {
+        const proposals = await storage.getProposalsByStore(storeId);
+        pendingProposals += proposals.filter(p => p.status === 'pending').length;
+      }
+      
+      // Format currency in Rupiah
+      const formatRupiah = (amount: number) => {
+        return new Intl.NumberFormat('id-ID', {
+          style: 'currency',
+          currency: 'IDR',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0
+        }).format(amount);
+      };
+      
       const stats = {
-        totalSales: "$12,450",
-        staffPresent: "8/10",
-        pendingProposals: 3,
-        monthlyCashflow: "+$2,340"
+        totalIncome: formatRupiah(totalIncome),
+        totalExpenses: formatRupiah(totalExpenses),
+        profit: formatRupiah(profit),
+        totalWalletBalance: formatRupiah(totalWalletBalance),
+        pendingProposals,
+        // Legacy field for compatibility
+        monthlyCashflow: profit >= 0 ? `+${formatRupiah(profit)}` : formatRupiah(profit)
       };
       
       res.json(stats);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Wallet routes
+  app.get("/api/wallets", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      const accessibleStoreIds = await getAccessibleStoreIds(req.user);
+      let wallets = [];
+      
+      for (const storeId of accessibleStoreIds) {
+        const storeWallets = await storage.getWalletsByStore(storeId);
+        wallets.push(...storeWallets);
+      }
+      
+      res.json(wallets);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/wallets/:id", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      const wallet = await storage.getWallet(req.params.id);
+      if (!wallet) {
+        return res.status(404).json({ message: "Wallet not found" });
+      }
+      
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, wallet.storeId))) {
+        return res.status(403).json({ message: "You don't have access to this wallet" });
+      }
+      
+      res.json(wallet);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/wallets", async (req, res) => {
+    try {
+      if (!req.user || !['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const { insertWalletSchema } = await import("@shared/schema");
+      const validatedData = insertWalletSchema.parse(req.body);
+      
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, validatedData.storeId))) {
+        return res.status(403).json({ message: "You don't have access to this store" });
+      }
+      
+      const wallet = await storage.createWallet(validatedData);
+      res.status(201).json(wallet);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/wallets/:id", async (req, res) => {
+    try {
+      if (!req.user || !['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const wallet = await storage.getWallet(req.params.id);
+      if (!wallet) {
+        return res.status(404).json({ message: "Wallet not found" });
+      }
+      
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, wallet.storeId))) {
+        return res.status(403).json({ message: "You don't have access to this wallet" });
+      }
+      
+      // Validate input data
+      const { insertWalletSchema } = await import("@shared/schema");
+      const partialSchema = insertWalletSchema.partial();
+      const validatedData = partialSchema.parse(req.body);
+      
+      const updatedWallet = await storage.updateWallet(req.params.id, validatedData);
+      res.json(updatedWallet);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/wallets/:id", async (req, res) => {
+    try {
+      if (!req.user || !['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const wallet = await storage.getWallet(req.params.id);
+      if (!wallet) {
+        return res.status(404).json({ message: "Wallet not found" });
+      }
+      
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, wallet.storeId))) {
+        return res.status(403).json({ message: "You don't have access to this wallet" });
+      }
+      
+      await storage.deleteWallet(req.params.id);
+      res.status(204).send();
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }

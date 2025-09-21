@@ -208,6 +208,20 @@ export const piutang = pgTable("piutang", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Wallets table for Bank Balance (Wallet Simulator)
+export const wallets = pgTable("wallets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  storeId: integer("store_id").notNull(),
+  name: text("name").notNull(), // 'Bank BCA', 'Bank BRI', 'Cash', 'E-Wallet'
+  type: text("type").notNull(), // 'bank', 'cash', 'ewallet'
+  balance: decimal("balance", { precision: 15, scale: 2 }).default("0"),
+  accountNumber: text("account_number"), // Bank account number (optional)
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -304,6 +318,12 @@ export const insertPiutangSchema = createInsertSchema(piutang).omit({
   createdAt: true,
 });
 
+export const insertWalletSchema = createInsertSchema(wallets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect & { 
   stores?: Store[];
@@ -332,6 +352,8 @@ export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type Piutang = typeof piutang.$inferSelect;
 export type InsertPiutang = z.infer<typeof insertPiutangSchema>;
+export type Wallet = typeof wallets.$inferSelect;
+export type InsertWallet = z.infer<typeof insertWalletSchema>;
 
 // Extended types with related data
 export type AttendanceWithEmployee = Attendance & {
