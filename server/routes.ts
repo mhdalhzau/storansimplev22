@@ -1685,7 +1685,14 @@ export function registerRoutes(app: Express): Server {
       if (req.user.role === 'administrasi') {
         customers = await storage.getAllCustomers();
       } else {
-        customers = await storage.getCustomersByStore(req.user.storeId!);
+        // Get first store ID for the user, don't use req.user.storeId directly
+        const targetStoreId = await getUserFirstStoreId(req.user);
+        
+        if (!targetStoreId) {
+          return res.status(400).json({ message: "No store access found for user" });
+        }
+        
+        customers = await storage.getCustomersByStore(targetStoreId);
       }
       
       res.json(customers);
