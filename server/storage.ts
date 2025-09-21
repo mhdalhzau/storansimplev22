@@ -701,8 +701,11 @@ export class MemStorage implements IStorage {
     };
     this.salesRecords.set(id, record);
 
-    // QRIS payments are income, not expenses - removing incorrect expense creation
-    // If needed, QRIS income can be recorded as regular cashflow income entry
+    // Handle QRIS payments: create piutang for manager since money is still in manager's personal account
+    const qrisAmount = parseFloat(record.totalQris || "0");
+    if (qrisAmount > 0) {
+      await this.createQrisPiutangForManager(record);
+    }
 
     return record;
   }
@@ -1114,24 +1117,64 @@ export class MemStorage implements IStorage {
     return { piutang: updatedPiutang, cashflow };
   }
 
-  // Helper method to create QRIS income entry (optional)
-  async createQrisIncomeEntry(salesRecord: Sales, customerId?: string): Promise<void> {
+  // Helper method to find or create manager customer for QRIS piutang
+  async findOrCreateManagerCustomer(storeId: number): Promise<Customer> {
+    // Look for existing manager customer
+    const existingManager = Array.from(this.customerRecords.values()).find(
+      customer => customer.email === 'manager@spbu.com' && customer.storeId === storeId
+    );
+
+    if (existingManager) {
+      return existingManager;
+    }
+
+    // Create manager customer for QRIS piutang tracking
+    const managerCustomer: InsertCustomer = {
+      name: "Manager SPBU",
+      email: "manager@spbu.com",
+      phone: null,
+      address: "Rekening Pribadi Manager - untuk transfer QRIS ke toko",
+      type: "employee",
+      storeId: storeId
+    };
+
+    return await this.createCustomer(managerCustomer);
+  }
+
+  // Create piutang for manager when QRIS payment received
+  async createQrisPiutangForManager(salesRecord: Sales): Promise<void> {
     const qrisAmount = parseFloat(salesRecord.totalQris || "0");
     if (qrisAmount <= 0) return;
 
-    // Create cashflow entry as income from QRIS payment
-    const cashflowData: InsertCashflow = {
+    // Find or create manager customer
+    const managerCustomer = await this.findOrCreateManagerCustomer(salesRecord.storeId);
+
+    // Create piutang: manager owes store the QRIS amount
+    const piutangData: InsertPiutang = {
+      customerId: managerCustomer.id,
+      storeId: salesRecord.storeId,
+      amount: salesRecord.totalQris || "0",
+      description: `Piutang QRIS dari Manager - Sales: ${salesRecord.id} - ${new Date(salesRecord.date).toLocaleDateString('id-ID')} - Uang masih di rekening pribadi manager`,
+      status: "belum_lunas",
+      paidAmount: "0",
+      createdBy: salesRecord.userId || "system"
+    };
+
+    await this.createPiutang(piutangData);
+
+    // Also record the income for the store (even though money is still in manager's account)
+    const incomeData: InsertCashflow = {
       storeId: salesRecord.storeId,
       category: "Income",
       type: "QRIS Payment",
       amount: salesRecord.totalQris || "0",
-      description: `QRIS Payment Income - Sales: ${salesRecord.id} - ${new Date(salesRecord.date).toLocaleDateString('id-ID')}`,
-      customerId: customerId || null,
+      description: `QRIS Payment Income - Sales: ${salesRecord.id} - ${new Date(salesRecord.date).toLocaleDateString('id-ID')} (Uang masih di rekening manager)`,
+      customerId: managerCustomer.id,
       paymentStatus: "lunas",
       date: salesRecord.date
     };
 
-    await this.createCashflow(cashflowData, salesRecord.userId || "system");
+    await this.createCashflow(incomeData, salesRecord.userId || "system");
   }
 }
 
