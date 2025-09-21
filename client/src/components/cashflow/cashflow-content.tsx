@@ -614,126 +614,67 @@ export default function CashflowContent() {
             </CardContent>
           </Card>
 
-          {/* Individual Store Summaries */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Store 1 Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <DollarSign className="h-4 w-4" />
-                  Main Store (ID: 1)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between items-center p-2 bg-green-50 dark:bg-green-900/20 rounded">
-                  <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                    Pemasukan
-                  </span>
-                  <span
-                    className="font-bold text-green-600"
-                    data-testid="text-store1-income"
-                  >
-                    Rp {store1Totals.totalIncome.toLocaleString("id-ID")}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
-                  <span className="text-sm font-medium text-red-700 dark:text-red-300">
-                    Pengeluaran
-                  </span>
-                  <span
-                    className="font-bold text-red-600"
-                    data-testid="text-store1-expense"
-                  >
-                    Rp {store1Totals.totalExpense.toLocaleString("id-ID")}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
-                  <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                    Investasi
-                  </span>
-                  <span
-                    className="font-bold text-blue-600"
-                    data-testid="text-store1-investment"
-                  >
-                    Rp {store1Totals.totalInvestment.toLocaleString("id-ID")}
-                  </span>
-                </div>
-                <div
-                  className={`flex justify-between items-center p-2 rounded font-semibold ${
-                    store1Totals.netFlow >= 0
-                      ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600"
-                      : "bg-orange-50 dark:bg-orange-900/20 text-orange-600"
-                  }`}
-                >
-                  <span className="text-sm font-medium">Net Cashflow</span>
-                  <span data-testid="text-store1-net">
-                    Rp {store1Totals.netFlow.toLocaleString("id-ID")}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Store 2 Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <DollarSign className="h-4 w-4" />
-                  Branch Store (ID: 2)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between items-center p-2 bg-green-50 dark:bg-green-900/20 rounded">
-                  <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                    Pemasukan
-                  </span>
-                  <span
-                    className="font-bold text-green-600"
-                    data-testid="text-store2-income"
-                  >
-                    Rp {store2Totals.totalIncome.toLocaleString("id-ID")}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
-                  <span className="text-sm font-medium text-red-700 dark:text-red-300">
-                    Pengeluaran
-                  </span>
-                  <span
-                    className="font-bold text-red-600"
-                    data-testid="text-store2-expense"
-                  >
-                    Rp {store2Totals.totalExpense.toLocaleString("id-ID")}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
-                  <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                    Investasi
-                  </span>
-                  <span
-                    className="font-bold text-blue-600"
-                    data-testid="text-store2-investment"
-                  >
-                    Rp {store2Totals.totalInvestment.toLocaleString("id-ID")}
-                  </span>
-                </div>
-                <div
-                  className={`flex justify-between items-center p-2 rounded font-semibold ${
-                    store2Totals.netFlow >= 0
-                      ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600"
-                      : "bg-orange-50 dark:bg-orange-900/20 text-orange-600"
-                  }`}
-                >
-                  <span className="text-sm font-medium">Net Cashflow</span>
-                  <span data-testid="text-store2-net">
-                    Rp {store2Totals.netFlow.toLocaleString("id-ID")}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
 
         {/* Main Store Cashflow */}
         <TabsContent value="store-1" className="space-y-4">
+          {/* Store 1 Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <DollarSign className="h-4 w-4" />
+                Main Store (ID: 1)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between items-center p-2 bg-green-50 dark:bg-green-900/20 rounded">
+                <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                  Pemasukan
+                </span>
+                <span
+                  className="font-bold text-green-600"
+                  data-testid="text-store1-income"
+                >
+                  Rp {store1Totals.totalIncome.toLocaleString("id-ID")}
+                </span>
+              </div>
+              <div className="flex justify-between items-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
+                <span className="text-sm font-medium text-red-700 dark:text-red-300">
+                  Pengeluaran
+                </span>
+                <span
+                  className="font-bold text-red-600"
+                  data-testid="text-store1-expense"
+                >
+                  Rp {store1Totals.totalExpense.toLocaleString("id-ID")}
+                </span>
+              </div>
+              <div className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  Investasi
+                </span>
+                <span
+                  className="font-bold text-blue-600"
+                  data-testid="text-store1-investment"
+                >
+                  Rp {store1Totals.totalInvestment.toLocaleString("id-ID")}
+                </span>
+              </div>
+              <div
+                className={`flex justify-between items-center p-2 rounded font-semibold ${
+                  store1Totals.netFlow >= 0
+                    ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600"
+                    : "bg-orange-50 dark:bg-orange-900/20 text-orange-600"
+                }`}
+              >
+                <span className="text-sm font-medium">Net Cashflow</span>
+                <span data-testid="text-store1-net">
+                  Rp {store1Totals.netFlow.toLocaleString("id-ID")}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Add Cashflow Entry */}
             <Card>
@@ -1267,6 +1208,63 @@ export default function CashflowContent() {
 
         {/* Branch Store Cashflow */}
         <TabsContent value="store-2" className="space-y-4">
+          {/* Store 2 Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <DollarSign className="h-4 w-4" />
+                Branch Store (ID: 2)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between items-center p-2 bg-green-50 dark:bg-green-900/20 rounded">
+                <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                  Pemasukan
+                </span>
+                <span
+                  className="font-bold text-green-600"
+                  data-testid="text-store2-income"
+                >
+                  Rp {store2Totals.totalIncome.toLocaleString("id-ID")}
+                </span>
+              </div>
+              <div className="flex justify-between items-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
+                <span className="text-sm font-medium text-red-700 dark:text-red-300">
+                  Pengeluaran
+                </span>
+                <span
+                  className="font-bold text-red-600"
+                  data-testid="text-store2-expense"
+                >
+                  Rp {store2Totals.totalExpense.toLocaleString("id-ID")}
+                </span>
+              </div>
+              <div className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  Investasi
+                </span>
+                <span
+                  className="font-bold text-blue-600"
+                  data-testid="text-store2-investment"
+                >
+                  Rp {store2Totals.totalInvestment.toLocaleString("id-ID")}
+                </span>
+              </div>
+              <div
+                className={`flex justify-between items-center p-2 rounded font-semibold ${
+                  store2Totals.netFlow >= 0
+                    ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600"
+                    : "bg-orange-50 dark:bg-orange-900/20 text-orange-600"
+                }`}
+              >
+                <span className="text-sm font-medium">Net Cashflow</span>
+                <span data-testid="text-store2-net">
+                  Rp {store2Totals.netFlow.toLocaleString("id-ID")}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Add Cashflow Entry - exact same as Main Store */}
             <Card>
