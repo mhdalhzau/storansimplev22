@@ -1867,7 +1867,7 @@ export default function SalesContent() {
             </div>
           )}
 
-          {/* Sales Table Content */}
+          {/* Sales Table Content */
           {isLoading ? (
             <div className="text-center py-8">Loading sales records...</div>
           ) : salesRecords && salesRecords.length > 0 ? (
@@ -1878,71 +1878,71 @@ export default function SalesContent() {
                     <TableHead>Tanggal</TableHead>
                     <TableHead>Hari Ini</TableHead>
                     <TableHead>Store</TableHead>
-                    <TableHead>Total Liter</TableHead>
-                    <TableHead>Total Penjualan</TableHead>
-                    <TableHead>Total QRIS</TableHead>
-                    <TableHead>Total Cash</TableHead>
-                    <TableHead>Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {salesRecords.map((record) => {
-                    const recordDate = record.date ? new Date(record.date) : new Date();
-                    const today = new Date();
-                    const isToday = recordDate.toDateString() === today.toDateString();
-                    
-                    return (
-                      <TableRow key={record.id}>
-                        <TableCell>
-                          {recordDate.toLocaleDateString('id-ID', { 
-                            year: 'numeric', 
-                            month: 'short', 
-                            day: 'numeric' 
-                          })}
-                        </TableCell>
-                        <TableCell>
-                          {isToday ? (
-                            <Badge variant="default" className="bg-green-100 text-green-800">
-                              Hari Ini
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {record.storeId === 1 ? "Main Store" : "Branch Store"}
-                        </TableCell>
-                        <TableCell className="text-center font-medium">
-                           {record.totalLiters || "0"} L
-                        </TableCell>
-                        <TableCell className="font-semibold text-green-700">
-                          {formatRupiah(record.totalSales)}
-                        </TableCell>
-                        <TableCell className="text-blue-600">
-                          {formatRupiah(record.totalQris || 0)}
-                        </TableCell>
-                        <TableCell className="text-orange-600">
-                          {formatRupiah(record.totalCash || 0)}
-                        </TableCell>
-                        <TableCell>
-                          <MultiSalesDetailModal records={[record]} />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="text-center text-muted-foreground py-8">
-              <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No sales records found</p>
-              <p className="text-sm">Try adjusting your filters or date range</p>
-            </div>
-          )}
-        </TabsContent>
+                      <TableHead>Total Liter</TableHead>
+                      <TableHead>Total Penjualan</TableHead>
+                      <TableHead>Total QRIS</TableHead>
+                      <TableHead>Total Cash</TableHead>
+                      <TableHead>Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {salesRecords.map((record) => {
+                      const recordDate = record.date ? new Date(record.date) : new Date();
+                      const today = new Date();
+                      const isToday = recordDate.toDateString() === today.toDateString();
+                      
+                      return (
+                        <TableRow key={record.id}>
+                          <TableCell>
+                            {recordDate.toLocaleDateString('id-ID', { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}
+                          </TableCell>
+                          <TableCell>
+                            {isToday ? (
+                              <Badge variant="default" className="bg-green-100 text-green-800">
+                                Hari Ini
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {record.storeId === 1 ? "Main Store" : "Branch Store"}
+                          </TableCell>
+                          <TableCell className="text-center font-medium">
+                             {record.totalLiters || "0"} L
+                          </TableCell>
+                          <TableCell className="font-semibold text-green-700">
+                            {formatRupiah(record.totalSales)}
+                          </TableCell>
+                          <TableCell className="text-blue-600">
+                            {formatRupiah(record.totalQris || 0)}
+                          </TableCell>
+                          <TableCell className="text-orange-600">
+                            {formatRupiah(record.totalCash || 0)}
+                          </TableCell>
+                          <TableCell>
+                            <MultiSalesDetailModal records={[record]} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No sales records found</p>
+                <p className="text-sm">Try adjusting your filters or date range</p>
+              </div>
+            )}
+          </TabsContent>
 
-        {/* Cash Flow Tab Content */}
+          {/* Cash Flow Tab Content */}
           <TabsContent value="cashflow" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <StoreCashflowContent storeId={1} />
