@@ -948,17 +948,82 @@ export class MemStorage implements IStorage {
 
   // Customer methods
   async getCustomer(id: string): Promise<Customer | undefined> {
+    // Check if it's a virtual customer (user-based)
+    if (id.startsWith('user-')) {
+      const userId = id.replace('user-', '');
+      const user = await this.getUser(userId);
+      if (user && ['staff', 'manager', 'administrasi'].includes(user.role)) {
+        // Convert user to customer format
+        return {
+          id: id,
+          name: user.name,
+          email: user.email,
+          phone: null,
+          address: `Internal Employee - ${user.role}`,
+          type: "employee" as const,
+          storeId: 1, // Default for virtual customers
+          createdAt: user.createdAt || new Date()
+        };
+      }
+      return undefined;
+    }
+    
+    // Regular customer lookup
     return this.customerRecords.get(id);
   }
 
   async getCustomersByStore(storeId: number): Promise<Customer[]> {
-    return Array.from(this.customerRecords.values()).filter(
+    // Get regular customers
+    const regularCustomers = Array.from(this.customerRecords.values()).filter(
       (customer) => customer.storeId === storeId
     );
+
+    // Get internal users (staff, admin, manager) and convert to customer format
+    const internalUsers = await this.getUsersByStore(storeId);
+    const allInternalUsers = internalUsers.filter(user => 
+      ['staff', 'manager', 'administrasi'].includes(user.role)
+    );
+
+    // Convert users to customer format for consistent interface
+    const virtualCustomers: Customer[] = allInternalUsers.map(user => ({
+      id: `user-${user.id}`, // Prefix to differentiate from real customers
+      name: user.name,
+      email: user.email,
+      phone: null,
+      address: `Internal Employee - ${user.role}`,
+      type: "employee" as const,
+      storeId: storeId,
+      createdAt: user.createdAt || new Date()
+    }));
+
+    // Combine regular customers with virtual customers from internal users
+    return [...regularCustomers, ...virtualCustomers];
   }
 
   async getAllCustomers(): Promise<Customer[]> {
-    return Array.from(this.customerRecords.values());
+    // Get regular customers
+    const regularCustomers = Array.from(this.customerRecords.values());
+
+    // Get all internal users (staff, admin, manager) across all stores and convert to customer format
+    const allUsers = await this.getAllUsers();
+    const allInternalUsers = allUsers.filter(user => 
+      ['staff', 'manager', 'administrasi'].includes(user.role)
+    );
+
+    // Convert users to customer format for consistent interface
+    const virtualCustomers: Customer[] = allInternalUsers.map(user => ({
+      id: `user-${user.id}`, // Prefix to differentiate from real customers
+      name: user.name,
+      email: user.email,
+      phone: null,
+      address: `Internal Employee - ${user.role}`,
+      type: "employee" as const,
+      storeId: 1, // Default store for admins
+      createdAt: user.createdAt || new Date()
+    }));
+
+    // Combine regular customers with virtual customers from internal users
+    return [...regularCustomers, ...virtualCustomers];
   }
 
   async createCustomer(insertCustomer: InsertCustomer): Promise<Customer> {
@@ -1117,28 +1182,32 @@ export class MemStorage implements IStorage {
     return { piutang: updatedPiutang, cashflow };
   }
 
-  // Helper method to find or create manager customer for QRIS piutang
-  async findOrCreateManagerCustomer(storeId: number): Promise<Customer> {
-    // Look for existing manager customer
+  // Helper method to find manager customer (auto-populated from users)
+  async findManagerCustomer(storeId: number): Promise<Customer | undefined> {
+    // Look for manager user in the store
+    const storeUsers = await this.getUsersByStore(storeId);
+    const managerUser = storeUsers.find(user => user.role === 'manager');
+    
+    if (managerUser) {
+      // Return virtual customer from manager user
+      return {
+        id: `user-${managerUser.id}`,
+        name: managerUser.name,
+        email: managerUser.email,
+        phone: null,
+        address: `Internal Employee - ${managerUser.role} - Rekening Pribadi untuk transfer QRIS ke toko`,
+        type: "employee" as const,
+        storeId: storeId,
+        createdAt: managerUser.createdAt || new Date()
+      };
+    }
+
+    // Fallback: look for existing manager customer record
     const existingManager = Array.from(this.customerRecords.values()).find(
       customer => customer.email === 'manager@spbu.com' && customer.storeId === storeId
     );
 
-    if (existingManager) {
-      return existingManager;
-    }
-
-    // Create manager customer for QRIS piutang tracking
-    const managerCustomer: InsertCustomer = {
-      name: "Manager SPBU",
-      email: "manager@spbu.com",
-      phone: null,
-      address: "Rekening Pribadi Manager - untuk transfer QRIS ke toko",
-      type: "employee",
-      storeId: storeId
-    };
-
-    return await this.createCustomer(managerCustomer);
+    return existingManager;
   }
 
   // Create piutang for manager when QRIS payment received
@@ -1146,8 +1215,13 @@ export class MemStorage implements IStorage {
     const qrisAmount = parseFloat(salesRecord.totalQris || "0");
     if (qrisAmount <= 0) return;
 
-    // Find or create manager customer
-    const managerCustomer = await this.findOrCreateManagerCustomer(salesRecord.storeId);
+    // Find manager customer (auto-populated from users)
+    const managerCustomer = await this.findManagerCustomer(salesRecord.storeId);
+    
+    if (!managerCustomer) {
+      console.warn(`No manager found for store ${salesRecord.storeId}, skipping QRIS piutang creation`);
+      return;
+    }
 
     // Create piutang: manager owes store the QRIS amount
     // Income will only be recorded when manager pays this piutang
