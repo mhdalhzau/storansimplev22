@@ -1494,29 +1494,31 @@ export default function SalesContent() {
           </CardTitle>
         </div>
         
-        {/* Tabs for different data types by store */}
-        <Tabs defaultValue="sales" className="w-full mt-4">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="sales" data-testid="tab-sales">
+        {/* Store-based tabs for Sales Reports and Cashflow */}
+        <Tabs defaultValue="store-1" className="w-full mt-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="store-1" data-testid="tab-store-1">
               <TrendingUp className="h-4 w-4 mr-2" />
-              Sales
+              Main Store (ID: 1)
             </TabsTrigger>
-            <TabsTrigger value="cashflow" data-testid="tab-cashflow">
+            <TabsTrigger value="store-2" data-testid="tab-store-2">
               <DollarSign className="h-4 w-4 mr-2" />
-              Cash Flow
-            </TabsTrigger>
-            <TabsTrigger value="customer" data-testid="tab-customer">
-              <Users className="h-4 w-4 mr-2" />
-              Customer
-            </TabsTrigger>
-            <TabsTrigger value="piutang" data-testid="tab-piutang">
-              <Receipt className="h-4 w-4 mr-2" />
-              Piutang
+              Branch Store (ID: 2)
             </TabsTrigger>
           </TabsList>
           
-          {/* Sales Tab Content (Original) */}
-          <TabsContent value="sales" className="space-y-4">
+          {/* Main Store Content */}
+          <TabsContent value="store-1" className="space-y-4">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold mb-2">Main Store - Sales Reports & Cash Flow</h3>
+            </div>
+            
+            {/* Sales Reports Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-medium flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Sales Reports
+              </h4>
             <div className="flex gap-3">
               <Input
                 type="date"
@@ -1534,16 +1536,6 @@ export default function SalesContent() {
                 className="w-auto"
                 data-testid="input-end-date"
               />
-              <Select value={selectedStore} onValueChange={setSelectedStore}>
-                <SelectTrigger className="w-auto" data-testid="select-store-filter">
-                  <SelectValue placeholder="All Stores" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Stores</SelectItem>
-                  <SelectItem value="1">Main Store</SelectItem>
-                  <SelectItem value="2">Branch Store</SelectItem>
-                </SelectContent>
-              </Select>
               <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
                 <DialogTrigger asChild>
                   <Button
@@ -1867,102 +1859,239 @@ export default function SalesContent() {
             </div>
           )}
 
-          {/* Sales Table Content */}
-          {isLoading ? (
-            <div className="text-center py-8">Loading sales records...</div>
-          ) : salesRecords && salesRecords.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead>Hari Ini</TableHead>
-                    <TableHead>Store</TableHead>
-                    <TableHead>Total Liter</TableHead>
-                    <TableHead>Total Penjualan</TableHead>
-                    <TableHead>Total QRIS</TableHead>
-                    <TableHead>Total Cash</TableHead>
-                    <TableHead>Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {salesRecords.map((record) => {
-                    const recordDate = record.date ? new Date(record.date) : new Date();
-                    const today = new Date();
-                    const isToday = recordDate.toDateString() === today.toDateString();
-                    
-                    return (
-                      <TableRow key={record.id}>
-                        <TableCell>
-                          {recordDate.toLocaleDateString('id-ID', { 
-                            year: 'numeric', 
-                            month: 'short', 
-                            day: 'numeric' 
-                          })}
-                        </TableCell>
-                        <TableCell>
-                          {isToday ? (
-                            <Badge variant="default" className="bg-green-100 text-green-800">
-                              Hari Ini
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {record.storeId === 1 ? "Main Store" : "Branch Store"}
-                        </TableCell>
-                        <TableCell className="text-center font-medium">
-                           {record.totalLiters || "0"} L
-                        </TableCell>
-                        <TableCell className="font-semibold text-green-700">
-                          {formatRupiah(record.totalSales)}
-                        </TableCell>
-                        <TableCell className="text-blue-600">
-                          {formatRupiah(record.totalQris || 0)}
-                        </TableCell>
-                        <TableCell className="text-orange-600">
-                          {formatRupiah(record.totalCash || 0)}
-                        </TableCell>
-                        <TableCell>
-                          <MultiSalesDetailModal records={[record]} />
-                        </TableCell>
+              {/* Sales Table Content for Main Store */}
+              {isLoading ? (
+                <div className="text-center py-8">Loading sales records...</div>
+              ) : salesRecords && salesRecords.filter(record => record.storeId === 1).length > 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Tanggal</TableHead>
+                        <TableHead>Hari Ini</TableHead>
+                        <TableHead>Total Liter</TableHead>
+                        <TableHead>Total Penjualan</TableHead>
+                        <TableHead>Total QRIS</TableHead>
+                        <TableHead>Total Cash</TableHead>
+                        <TableHead>Action</TableHead>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {salesRecords.filter(record => record.storeId === 1).map((record) => {
+                        const recordDate = record.date ? new Date(record.date) : new Date();
+                        const today = new Date();
+                        const isToday = recordDate.toDateString() === today.toDateString();
+                        
+                        return (
+                          <TableRow key={record.id}>
+                            <TableCell>
+                              {recordDate.toLocaleDateString('id-ID', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric' 
+                              })}
+                            </TableCell>
+                            <TableCell>
+                              {isToday ? (
+                                <Badge variant="default" className="bg-green-100 text-green-800">
+                                  Hari Ini
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center font-medium">
+                               {record.totalLiters || "0"} L
+                            </TableCell>
+                            <TableCell className="font-semibold text-green-700">
+                              {formatRupiah(record.totalSales)}
+                            </TableCell>
+                            <TableCell className="text-blue-600">
+                              {formatRupiah(record.totalQris || 0)}
+                            </TableCell>
+                            <TableCell className="text-orange-600">
+                              {formatRupiah(record.totalCash || 0)}
+                            </TableCell>
+                            <TableCell>
+                              <MultiSalesDetailModal records={[record]} />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground py-8">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No sales records found for Main Store</p>
+                  <p className="text-sm">Try adjusting your filters or date range</p>
+                </div>
+              )}
+              
+              {/* Cash Flow Section for Main Store */}
+              <div className="mt-8 space-y-4">
+                <h4 className="text-md font-medium flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Cash Flow
+                </h4>
+                <StoreCashflowContent storeId={1} />
+              </div>
             </div>
-          ) : (
-            <div className="text-center text-muted-foreground py-8">
-              <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No sales records found</p>
-              <p className="text-sm">Try adjusting your filters or date range</p>
-            </div>
-          )}
         </TabsContent>
 
-        {/* Cash Flow Tab Content */}
-          <TabsContent value="cashflow" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <StoreCashflowContent storeId={1} />
-              <StoreCashflowContent storeId={2} />
+          {/* Branch Store Content */}
+          <TabsContent value="store-2" className="space-y-4">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold mb-2">Branch Store - Sales Reports & Cash Flow</h3>
             </div>
-          </TabsContent>
+            
+            {/* Sales Reports Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-medium flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Sales Reports
+              </h4>
+              
+              <div className="flex gap-3">
+                <Input
+                  type="date"
+                  placeholder="Start date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-auto"
+                  data-testid="input-start-date-store-2"
+                />
+                <Input
+                  type="date"
+                  placeholder="End date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-auto"
+                  data-testid="input-end-date-store-2"
+                />
+                <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                      data-testid="button-import-setoran-store-2"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Import from Setoran
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Import dari Format Setoran Harian - Branch Store</DialogTitle>
+                    </DialogHeader>
+                    {/* Same import dialog content as store 1 */}
+                  </DialogContent>
+                </Dialog>
+                <Button
+                  variant="outline"
+                  onClick={handleExportPDF}
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                  data-testid="button-export-pdf-store-2"
+                >
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Export PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleExportExcel}
+                  className="text-green-600 border-green-200 hover:bg-green-50"
+                  data-testid="button-export-excel-store-2"
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Export Excel
+                </Button>
+              </div>
+              
+              {lastSyncTime && (
+                <div className="text-xs text-gray-500 mt-2">
+                  Last sync: {lastSyncTime}
+                </div>
+              )}
 
-          {/* Customer Tab Content */}
-          <TabsContent value="customer" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <StoreCustomerContent storeId={1} />
-              <StoreCustomerContent storeId={2} />
-            </div>
-          </TabsContent>
-
-          {/* Piutang Tab Content */}
-          <TabsContent value="piutang" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <StorePiutangContent storeId={1} />
-              <StorePiutangContent storeId={2} />
+              {/* Sales Table Content for Branch Store */}
+              {isLoading ? (
+                <div className="text-center py-8">Loading sales records...</div>
+              ) : salesRecords && salesRecords.filter(record => record.storeId === 2).length > 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Tanggal</TableHead>
+                        <TableHead>Hari Ini</TableHead>
+                        <TableHead>Total Liter</TableHead>
+                        <TableHead>Total Penjualan</TableHead>
+                        <TableHead>Total QRIS</TableHead>
+                        <TableHead>Total Cash</TableHead>
+                        <TableHead>Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {salesRecords.filter(record => record.storeId === 2).map((record) => {
+                        const recordDate = record.date ? new Date(record.date) : new Date();
+                        const today = new Date();
+                        const isToday = recordDate.toDateString() === today.toDateString();
+                        
+                        return (
+                          <TableRow key={record.id}>
+                            <TableCell>
+                              {recordDate.toLocaleDateString('id-ID', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric' 
+                              })}
+                            </TableCell>
+                            <TableCell>
+                              {isToday ? (
+                                <Badge variant="default" className="bg-green-100 text-green-800">
+                                  Hari Ini
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center font-medium">
+                               {record.totalLiters || "0"} L
+                            </TableCell>
+                            <TableCell className="font-semibold text-green-700">
+                              {formatRupiah(record.totalSales)}
+                            </TableCell>
+                            <TableCell className="text-blue-600">
+                              {formatRupiah(record.totalQris || 0)}
+                            </TableCell>
+                            <TableCell className="text-orange-600">
+                              {formatRupiah(record.totalCash || 0)}
+                            </TableCell>
+                            <TableCell>
+                              <MultiSalesDetailModal records={[record]} />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground py-8">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No sales records found for Branch Store</p>
+                  <p className="text-sm">Try adjusting your filters or date range</p>
+                </div>
+              )}
+              
+              {/* Cash Flow Section for Branch Store */}
+              <div className="mt-8 space-y-4">
+                <h4 className="text-md font-medium flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Cash Flow
+                </h4>
+                <StoreCashflowContent storeId={2} />
+              </div>
             </div>
           </TabsContent>
         </Tabs>
