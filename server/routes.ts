@@ -1029,6 +1029,7 @@ export function registerRoutes(app: Express): Server {
       }
 
       // Find user ID by employee name from text
+      let employeeMatched = false;
       if (salesData.employeeName) {
         try {
           const users = await storage.getUsers();
@@ -1039,6 +1040,7 @@ export function registerRoutes(app: Express): Server {
           if (matchingUser) {
             // Use the employee's user ID instead of uploader's ID
             salesData.userId = matchingUser.id;
+            employeeMatched = true;
             console.log(`Found matching user for employee: ${salesData.employeeName} -> ${matchingUser.id}`);
           } else {
             console.log(`No matching user found for employee: ${salesData.employeeName}, using uploader ID`);
@@ -1053,10 +1055,192 @@ export function registerRoutes(app: Express): Server {
       // Create sales record
       const newSales = await storage.createSales(salesData);
 
+      // Extract date from sales data or use current date
+      const importDate = salesData.date || new Date();
+      const employeeUserId = salesData.userId;
+
+      // Create attendance record if we have shift/time data (with idempotency check)
+      let attendanceCreated = false;
+      if (salesData.checkIn && salesData.checkOut && employeeUserId) {
+        try {
+          // Check if attendance already exists for this user/store/date to avoid duplicates
+          const dateOnly = new Date(importDate);
+          dateOnly.setHours(0, 0, 0, 0);
+          const dateStr = dateOnly.toISOString().split('T')[0];
+          
+          const existingAttendance = await storage.getAttendanceByUserAndDateRange(employeeUserId, dateStr, dateStr);
+          
+          if (!existingAttendance || existingAttendance.length === 0) {
+            const attendanceData = {
+              userId: employeeUserId,
+              storeId: targetStoreId,
+              date: importDate,
+              checkIn: salesData.checkIn,
+              checkOut: salesData.checkOut,
+              shift: salesData.shift || 'pagi',
+              attendanceStatus: 'hadir',
+              status: 'approved', // Auto-approve imported attendance
+              notes: `Auto-imported from sales data import on ${new Date().toISOString().split('T')[0]}`
+            };
+
+            const newAttendance = await storage.createAttendance(attendanceData);
+            attendanceCreated = true;
+            console.log(`Created attendance record for user ${employeeUserId}: ${newAttendance.id}`);
+          } else {
+            console.log(`Attendance already exists for user ${employeeUserId} on ${dateOnly.toISOString().split('T')[0]}, skipping creation`);
+          }
+        } catch (attendanceError) {
+          console.log('Failed to create attendance record:', attendanceError);
+          // Don't fail the entire import if attendance creation fails
+        }
+      }
+
+      // Create cashflow entries for income and expenses
+      const cashflowEntries = [];
+
+      // Create income cashflow entries
+      if (salesData.totalIncome && salesData.totalIncome > 0) {
+        try {
+          // Handle both string and array shapes for incomeDetails
+          let incomeEntries = [];
+          if (salesData.incomeDetails) {
+            if (Array.isArray(salesData.incomeDetails)) {
+              incomeEntries = salesData.incomeDetails;
+            } else if (typeof salesData.incomeDetails === 'string') {
+              try {
+                incomeEntries = JSON.parse(salesData.incomeDetails);
+              } catch (parseError) {
+                console.log('Failed to parse incomeDetails, falling back to single entry');
+                incomeEntries = [];
+              }
+            }
+          }
+          
+          if (incomeEntries.length > 0) {
+            // Create individual income entries
+            for (const incomeItem of incomeEntries) {
+              const incomeCashflow = {
+                storeId: targetStoreId,
+                category: 'Income',
+                type: 'Other',
+                amount: incomeItem.amount,
+                description: `${incomeItem.description} (Auto-imported from sales data)`,
+                date: importDate
+              };
+              
+              const newIncomeCashflow = await storage.createCashflow(incomeCashflow);
+              cashflowEntries.push(newIncomeCashflow);
+            }
+          } else {
+            // Create single income entry as fallback
+            const incomeCashflow = {
+              storeId: targetStoreId,
+              category: 'Income',
+              type: 'Other',
+              amount: salesData.totalIncome,
+              description: `Income from sales import (Auto-imported on ${new Date().toISOString().split('T')[0]})`,
+              date: importDate
+            };
+            
+            const newIncomeCashflow = await storage.createCashflow(incomeCashflow);
+            cashflowEntries.push(newIncomeCashflow);
+          }
+        } catch (incomeError) {
+          console.log('Failed to create income cashflow entries:', incomeError);
+          // Create fallback single entry if main process fails
+          try {
+            const fallbackIncomeCashflow = {
+              storeId: targetStoreId,
+              category: 'Income',
+              type: 'Other',
+              amount: salesData.totalIncome,
+              description: `Income from sales import - fallback (Auto-imported on ${new Date().toISOString().split('T')[0]})`,
+              date: importDate
+            };
+            
+            const fallbackIncome = await storage.createCashflow(fallbackIncomeCashflow);
+            cashflowEntries.push(fallbackIncome);
+          } catch (fallbackError) {
+            console.log('Failed to create fallback income cashflow entry:', fallbackError);
+          }
+        }
+      }
+
+      // Create expense cashflow entries
+      if (salesData.totalExpenses && salesData.totalExpenses > 0) {
+        try {
+          // Handle both string and array shapes for expenseDetails
+          let expenseEntries = [];
+          if (salesData.expenseDetails) {
+            if (Array.isArray(salesData.expenseDetails)) {
+              expenseEntries = salesData.expenseDetails;
+            } else if (typeof salesData.expenseDetails === 'string') {
+              try {
+                expenseEntries = JSON.parse(salesData.expenseDetails);
+              } catch (parseError) {
+                console.log('Failed to parse expenseDetails, falling back to single entry');
+                expenseEntries = [];
+              }
+            }
+          }
+          
+          if (expenseEntries.length > 0) {
+            // Create individual expense entries
+            for (const expenseItem of expenseEntries) {
+              const expenseCashflow = {
+                storeId: targetStoreId,
+                category: 'Expense',
+                type: 'Other',
+                amount: expenseItem.amount,
+                description: `${expenseItem.description} (Auto-imported from sales data)`,
+                date: importDate
+              };
+              
+              const newExpenseCashflow = await storage.createCashflow(expenseCashflow);
+              cashflowEntries.push(newExpenseCashflow);
+            }
+          } else {
+            // Create single expense entry as fallback
+            const expenseCashflow = {
+              storeId: targetStoreId,
+              category: 'Expense',
+              type: 'Other',
+              amount: salesData.totalExpenses,
+              description: `Expenses from sales import (Auto-imported on ${new Date().toISOString().split('T')[0]})`,
+              date: importDate
+            };
+            
+            const newExpenseCashflow = await storage.createCashflow(expenseCashflow);
+            cashflowEntries.push(newExpenseCashflow);
+          }
+        } catch (expenseError) {
+          console.log('Failed to create expense cashflow entries:', expenseError);
+          // Create fallback single entry if main process fails
+          try {
+            const fallbackExpenseCashflow = {
+              storeId: targetStoreId,
+              category: 'Expense',
+              type: 'Other',
+              amount: salesData.totalExpenses,
+              description: `Expenses from sales import - fallback (Auto-imported on ${new Date().toISOString().split('T')[0]})`,
+              date: importDate
+            };
+            
+            const fallbackExpense = await storage.createCashflow(fallbackExpenseCashflow);
+            cashflowEntries.push(fallbackExpense);
+          } catch (fallbackError) {
+            console.log('Failed to create fallback expense cashflow entry:', fallbackError);
+          }
+        }
+      }
+
       res.json({
         success: true,
-        message: "Sales data imported successfully from text",
-        salesRecord: newSales
+        message: "Sales data imported successfully from text with attendance and cashflow entries",
+        salesRecord: newSales,
+        attendanceCreated: attendanceCreated,
+        cashflowEntriesCreated: cashflowEntries.length,
+        employeeMatched: employeeMatched
       });
 
     } catch (error: any) {

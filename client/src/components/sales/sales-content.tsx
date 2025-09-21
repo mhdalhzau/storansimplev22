@@ -41,11 +41,31 @@ function TextImportModal({ storeId, storeName }: { storeId: number; storeName: s
       return await apiRequest('POST', '/api/sales/import-text', data);
     },
     onSuccess: (response) => {
+      const details = [];
+      details.push("✅ Sales record created");
+      
+      if (response.attendanceCreated) {
+        details.push("✅ Attendance record created");
+      }
+      
+      if (response.cashflowEntriesCreated > 0) {
+        details.push(`✅ ${response.cashflowEntriesCreated} cashflow entries created`);
+      }
+      
+      if (response.employeeMatched) {
+        details.push("✅ Employee name matched with user account");
+      }
+
       toast({
-        title: "Success",
-        description: `Sales data imported successfully for ${storeName}`,
+        title: "Import Successful!",
+        description: `Sales data imported for ${storeName}:\n${details.join('\n')}`,
       });
+      
+      // Invalidate all related queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/sales'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/attendance'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/cashflow'] });
+      
       setTextData("");
       setParsedData(null);
       setStep("input");
