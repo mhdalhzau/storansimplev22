@@ -325,16 +325,15 @@ export default function CashflowContent() {
     };
   };
 
-  // Memoize calculations for performance
-  const store1Totals = useMemo(() => calculateStoreTotals(allCashflowStore1), [allCashflowStore1]);
-  const store2Totals = useMemo(() => calculateStoreTotals(allCashflowStore2), [allCashflowStore2]);
+  const store1Totals = calculateStoreTotals(allCashflowStore1);
+  const store2Totals = calculateStoreTotals(allCashflowStore2);
   
-  const grandTotals = useMemo(() => ({
+  const grandTotals = {
     totalIncome: store1Totals.totalIncome + store2Totals.totalIncome,
     totalExpense: store1Totals.totalExpense + store2Totals.totalExpense,
     totalInvestment: store1Totals.totalInvestment + store2Totals.totalInvestment,
     netFlow: (store1Totals.totalIncome + store2Totals.totalIncome) - (store1Totals.totalExpense + store2Totals.totalExpense) - (store1Totals.totalInvestment + store2Totals.totalInvestment)
-  }), [store1Totals, store2Totals]);
+  };
 
   // Customer creation form
   const customerForm = useForm<z.infer<typeof insertCustomerSchema>>({
@@ -359,9 +358,7 @@ export default function CashflowContent() {
         description: "Cashflow entry saved successfully!",
       });
       form.reset();
-      // Invalidate both store queries to keep summaries fresh
-      queryClient.invalidateQueries({ queryKey: ["/api/cashflow", { storeId: 1 }] });
-      queryClient.invalidateQueries({ queryKey: ["/api/cashflow", { storeId: 2 }] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cashflow", { storeId: currentStoreId }] });
     },
     onError: (error: Error) => {
       toast({
