@@ -26,6 +26,152 @@ function getUserNameFromId(userId: string | null, allUsers: any[] = []): string 
   return user?.name || `Staff ${userId.slice(0, 8)}`;
 }
 
+// Text Import Modal Component
+function TextImportModal({ storeId, storeName }: { storeId: number; storeName: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [textData, setTextData] = useState("");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Text import mutation
+  const importTextMutation = useMutation({
+    mutationFn: async (data: { storeId: number; textData: string }) => {
+      return await apiRequest('POST', '/api/sales/import-text', data);
+    },
+    onSuccess: (response) => {
+      toast({
+        title: "Success",
+        description: `Sales data imported successfully for ${storeName}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/sales'] });
+      setTextData("");
+      setIsOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Import Failed",
+        description: error.message || "Failed to import sales data",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleImport = () => {
+    if (!textData.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter text data to import",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    importTextMutation.mutate({
+      storeId,
+      textData: textData.trim()
+    });
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button 
+          variant="outline" 
+          className="text-blue-600 border-blue-200 hover:bg-blue-50"
+          data-testid={`button-import-text-store-${storeId}`}
+        >
+          <Upload className="h-4 w-4 mr-2" />
+          Import Text ({storeName})
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Upload className="h-5 w-5" />
+            Import Setoran Harian - {storeName}
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="import-text">Paste Setoran Harian Text</Label>
+            <Textarea
+              id="import-text"
+              placeholder={`Setoran Harian 📋
+Sabtu, 20 September 2025
+🤦‍♀️ Nama: Hafiz
+🕐 Jam: (07:00 - 14:00)
+
+⛽ Data Meter
+* Nomor Awal : 10
+* Nomor Akhir: 20
+* Total Liter: 10.00 L
+
+💰 Setoran
+* Cash  : Rp 95.000
+* QRIS  : Rp 20.000
+* Total : Rp 115.000
+
+💸 Pengeluaran (PU)
+* makan: Rp 50.000
+* minum: Rp 50.000
+Total Pengeluaran: Rp 100.000
+
+💵 Pemasukan (PU)
+* bg dedi bayar: Rp 100.000
+Total Pemasukan: Rp 100.000
+
+💼 Total Keseluruhan: Rp 95.000
+07:00 = Jam Masuk
+14:00 = Jam Keluar`}
+              value={textData}
+              onChange={(e) => setTextData(e.target.value)}
+              rows={15}
+              className="w-full"
+              data-testid="textarea-import-text"
+            />
+          </div>
+          
+          <Alert>
+            <Upload className="h-4 w-4" />
+            <AlertDescription>
+              Paste the complete "Setoran Harian" text above. The system will automatically parse:
+              employee name, shift times, meter readings, cash/QRIS amounts, expenses, income, and totals.
+            </AlertDescription>
+          </Alert>
+        </div>
+
+        <DialogFooter className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => setIsOpen(false)}
+            data-testid="button-cancel-import"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleImport}
+            disabled={importTextMutation.isPending || !textData.trim()}
+            data-testid="button-confirm-import"
+          >
+            {importTextMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Importing...
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4 mr-2" />
+                Import Data
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Sales Detail Modal Component for single record
 function SalesDetailModal({ record }: { record: Sales }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -439,6 +585,12 @@ export default function SalesContent() {
                 <Filter className="h-4 w-4 mr-2" />
                 Reset Filter
               </Button>
+              
+              {/* Store-specific Import Button */}
+              <TextImportModal 
+                storeId={currentStoreId} 
+                storeName={activeTab === "store-1" ? "Main Store" : "Branch Store"} 
+              />
             </div>
 
             {/* Summary Cards */}

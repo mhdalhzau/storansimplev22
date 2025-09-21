@@ -810,6 +810,242 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Text Import endpoint for Sales
+  app.post("/api/sales/import-text", async (req, res) => {
+    try {
+      if (!req.user || !['manager', 'administrasi', 'staff'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { storeId, textData } = req.body;
+
+      // Get target store ID
+      const targetStoreId = storeId ? parseInt(storeId as string) : await getUserFirstStoreId(req.user);
+      
+      if (!targetStoreId) {
+        return res.status(400).json({ message: "Store ID is required" });
+      }
+
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, targetStoreId))) {
+        return res.status(403).json({ message: "You don't have access to this store" });
+      }
+
+      if (!textData || typeof textData !== 'string') {
+        return res.status(400).json({ message: "Text data is required" });
+      }
+
+      // Parse the text data
+      const parseSetoranText = (text: string) => {
+        const lines = text.split('\n').map(line => line.trim());
+        
+        // Initialize data object
+        const parsedData: any = {
+          storeId: targetStoreId,
+          userId: req.user.id,
+          date: new Date(),
+          shift: null,
+          checkIn: null,
+          checkOut: null,
+          meterStart: null,
+          meterEnd: null,
+          totalLiters: null,
+          totalCash: null,
+          totalQris: null,
+          totalSales: null,
+          totalIncome: null,
+          totalExpenses: null,
+          incomeDetails: null,
+          expenseDetails: null,
+          transactions: 0,
+          averageTicket: null
+        };
+
+        // Parse employee name and time
+        for (const line of lines) {
+          // Extract employee name
+          if (line.includes('Nama:')) {
+            const nameMatch = line.match(/Nama:\s*(.+)/);
+            if (nameMatch) {
+              parsedData.employeeName = nameMatch[1].trim();
+            }
+          }
+
+          // Extract time range for shift detection and check in/out
+          if (line.includes('Jam:')) {
+            const timeMatch = line.match(/Jam:\s*\((\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})\)/);
+            if (timeMatch) {
+              parsedData.checkIn = timeMatch[1];
+              parsedData.checkOut = timeMatch[2];
+              
+              // Determine shift based on start time
+              const startHour = parseInt(timeMatch[1].split(':')[0]);
+              if (startHour >= 6 && startHour < 14) {
+                parsedData.shift = 'pagi';
+              } else if (startHour >= 14 && startHour < 22) {
+                parsedData.shift = 'siang';
+              } else {
+                parsedData.shift = 'malam';
+              }
+            }
+          }
+
+          // Extract meter data
+          if (line.includes('Nomor Awal')) {
+            const match = line.match(/Nomor Awal\s*:\s*(\d+(?:\.\d+)?)/);
+            if (match) parsedData.meterStart = parseFloat(match[1]);
+          }
+          if (line.includes('Nomor Akhir')) {
+            const match = line.match(/Nomor Akhir\s*:\s*(\d+(?:\.\d+)?)/);
+            if (match) parsedData.meterEnd = parseFloat(match[1]);
+          }
+          if (line.includes('Total Liter')) {
+            const match = line.match(/Total Liter\s*:\s*(\d+(?:\.\d+)?)/);
+            if (match) parsedData.totalLiters = parseFloat(match[1]);
+          }
+
+          // Extract payment data
+          if (line.includes('Cash') && line.includes('Rp')) {
+            const match = line.match(/Cash\s*:\s*Rp\s*([\d,.]+)/);
+            if (match) {
+              parsedData.totalCash = parseFloat(match[1].replace(/[,.]/g, ''));
+            }
+          }
+          if (line.includes('QRIS') && line.includes('Rp')) {
+            const match = line.match(/QRIS\s*:\s*Rp\s*([\d,.]+)/);
+            if (match) {
+              parsedData.totalQris = parseFloat(match[1].replace(/[,.]/g, ''));
+            }
+          }
+
+          // Extract total expenses
+          if (line.includes('Total Pengeluaran')) {
+            const match = line.match(/Total Pengeluaran\s*:\s*Rp\s*([\d,.]+)/);
+            if (match) {
+              parsedData.totalExpenses = parseFloat(match[1].replace(/[,.]/g, ''));
+            }
+          }
+
+          // Extract total income
+          if (line.includes('Total Pemasukan')) {
+            const match = line.match(/Total Pemasukan\s*:\s*Rp\s*([\d,.]+)/);
+            if (match) {
+              parsedData.totalIncome = parseFloat(match[1].replace(/[,.]/g, ''));
+            }
+          }
+
+          // Extract total keseluruhan (should be used as totalSales)
+          if (line.includes('Total Keseluruhan')) {
+            const match = line.match(/Total Keseluruhan\s*:\s*Rp\s*([\d,.]+)/);
+            if (match) {
+              parsedData.totalSales = parseFloat(match[1].replace(/[,.]/g, ''));
+            }
+          }
+        }
+
+        // Calculate totals if not explicitly provided
+        if (!parsedData.totalSales && (parsedData.totalCash || parsedData.totalQris)) {
+          parsedData.totalSales = (parsedData.totalCash || 0) + (parsedData.totalQris || 0);
+        }
+
+        // Estimate transactions count (simple heuristic)
+        if (parsedData.totalSales && parsedData.totalLiters) {
+          // Assume average transaction is ~50L or at least 1 transaction per 100k revenue
+          parsedData.transactions = Math.max(
+            Math.ceil(parsedData.totalLiters / 50), 
+            Math.ceil(parsedData.totalSales / 100000)
+          );
+        }
+
+        // Calculate average ticket
+        if (parsedData.totalSales && parsedData.transactions > 0) {
+          parsedData.averageTicket = parsedData.totalSales / parsedData.transactions;
+        }
+
+        // Parse detailed expenses and income into JSON
+        const expenseDetails: any[] = [];
+        const incomeDetails: any[] = [];
+        
+        let inExpenseSection = false;
+        let inIncomeSection = false;
+        
+        for (const line of lines) {
+          if (line.includes('💸 Pengeluaran')) {
+            inExpenseSection = true;
+            inIncomeSection = false;
+            continue;
+          }
+          if (line.includes('💵 Pemasukan')) {
+            inIncomeSection = true;
+            inExpenseSection = false;
+            continue;
+          }
+          if (line.includes('💼 Total Keseluruhan')) {
+            inExpenseSection = false;
+            inIncomeSection = false;
+            continue;
+          }
+
+          if (inExpenseSection && line.includes(':') && line.includes('Rp')) {
+            const match = line.match(/\*\s*(.+):\s*Rp\s*([\d,.]+)/);
+            if (match) {
+              expenseDetails.push({
+                description: match[1].trim(),
+                amount: parseFloat(match[2].replace(/[,.]/g, ''))
+              });
+            }
+          }
+
+          if (inIncomeSection && line.includes(':') && line.includes('Rp')) {
+            const match = line.match(/\*\s*(.+):\s*Rp\s*([\d,.]+)/);
+            if (match) {
+              incomeDetails.push({
+                description: match[1].trim(),
+                amount: parseFloat(match[2].replace(/[,.]/g, ''))
+              });
+            }
+          }
+        }
+
+        if (expenseDetails.length > 0) {
+          parsedData.expenseDetails = JSON.stringify(expenseDetails);
+        }
+        if (incomeDetails.length > 0) {
+          parsedData.incomeDetails = JSON.stringify(incomeDetails);
+        }
+
+        return parsedData;
+      };
+
+      // Parse the text
+      const salesData = parseSetoranText(textData);
+
+      // Validate required fields
+      if (!salesData.totalSales) {
+        return res.status(400).json({ 
+          message: "Unable to parse total sales from text data",
+          details: "Please ensure the text contains 'Total Keseluruhan' or valid cash/QRIS amounts" 
+        });
+      }
+
+      // Create sales record
+      const newSales = await storage.createSales(salesData);
+
+      res.json({
+        success: true,
+        message: "Sales data imported successfully from text",
+        salesRecord: newSales
+      });
+
+    } catch (error: any) {
+      console.error('Text import error:', error);
+      res.status(500).json({ 
+        message: "Failed to import text data",
+        details: error.message 
+      });
+    }
+  });
+
   // Google Sheets Sync endpoints
   app.post("/api/sales/sync-to-sheets", async (req, res) => {
     try {
