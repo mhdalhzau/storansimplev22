@@ -11,13 +11,229 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { FileDown, FileSpreadsheet, TrendingUp, Upload, Loader2, Eye, Clock, Gauge, CreditCard, Calculator, Trash2, User, Wifi, WifiOff, RefreshCw, X, CheckCircle, AlertTriangle } from "lucide-react";
+import { FileDown, FileSpreadsheet, TrendingUp, Upload, Loader2, Eye, Clock, Gauge, CreditCard, Calculator, Trash2, User, Wifi, WifiOff, RefreshCw, X, CheckCircle, AlertTriangle, DollarSign, Users, Receipt } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { formatRupiah } from "@/lib/utils";
-import { type Sales } from "@shared/schema";
+import { type Sales, type Cashflow, type Customer, type Piutang } from "@shared/schema";
 import { z } from "zod";
+import CashflowContent from "@/components/cashflow/cashflow-content";
+import CustomerPage from "@/pages/customer-page";
+import PiutangPage from "@/pages/piutang-page";
+
+// Store-filtered Cashflow Component
+function StoreCashflowContent({ storeId }: { storeId: number }) {
+  const { data: cashflowRecords = [], isLoading } = useQuery<Cashflow[]>({
+    queryKey: ["/api/cashflow", { storeId }],
+  });
+
+  const filteredRecords = cashflowRecords.filter(record => record.storeId === storeId);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <DollarSign className="h-5 w-5" />
+          Cash Flow - {storeId === 1 ? "Main Store" : "Branch Store"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="text-center py-8">Loading cashflow records...</div>
+        ) : filteredRecords && filteredRecords.length > 0 ? (
+          <div className="space-y-4">
+            {filteredRecords.slice(0, 10).map((entry) => (
+              <div 
+                key={entry.id} 
+                className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
+                data-testid={`card-cashflow-${entry.id}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${
+                    entry.category === "Income" 
+                      ? "bg-green-100" 
+                      : entry.category === "Expense" 
+                      ? "bg-red-100" 
+                      : "bg-blue-100"
+                  }`}>
+                    {entry.category === "Income" ? (
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <TrendingUp className="h-4 w-4 text-red-600" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground">
+                      {entry.description || `${entry.category} - ${entry.type}`}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {entry.category} • {entry.type}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`font-semibold ${
+                    entry.category === "Income" ? "text-green-600" : "text-red-600"
+                  }`}>
+                    {entry.category === "Income" ? "+" : "-"}Rp {parseInt(
+                      entry.category === "Expense" && entry.totalPengeluaran 
+                        ? entry.totalPengeluaran 
+                        : entry.amount
+                    ).toLocaleString('id-ID')}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-muted-foreground py-8">
+            <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>No cashflow records found for this store</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Store-filtered Customer Component
+function StoreCustomerContent({ storeId }: { storeId: number }) {
+  const { data: customers = [], isLoading } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+  });
+
+  const filteredCustomers = customers.filter(customer => customer.storeId === storeId);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Users className="h-5 w-5" />
+          Customer - {storeId === 1 ? "Main Store" : "Branch Store"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="text-center py-8">Loading customers...</div>
+        ) : filteredCustomers && filteredCustomers.length > 0 ? (
+          <div className="space-y-4">
+            {filteredCustomers.slice(0, 10).map((customer) => (
+              <div 
+                key={customer.id} 
+                className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
+                data-testid={`card-customer-${customer.id}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-100">
+                    <User className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground">{customer.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {customer.email || customer.phone || 'No contact info'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={customer.type === "employee" ? "secondary" : "default"}>
+                    {customer.type === "employee" ? "Employee" : "Customer"}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-muted-foreground py-8">
+            <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>No customers found for this store</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Store-filtered Piutang Component
+function StorePiutangContent({ storeId }: { storeId: number }) {
+  const { data: piutangRecords = [], isLoading } = useQuery<Piutang[]>({
+    queryKey: ["/api/piutang"],
+  });
+  
+  const { data: customers = [] } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+  });
+
+  const filteredPiutang = piutangRecords.filter(piutang => piutang.storeId === storeId);
+
+  // Group by customer
+  const customerPiutangMap = filteredPiutang.reduce((acc, piutang) => {
+    const customerId = piutang.customerId;
+    if (!acc[customerId]) {
+      acc[customerId] = [];
+    }
+    acc[customerId].push(piutang);
+    return acc;
+  }, {} as Record<string, Piutang[]>);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Receipt className="h-5 w-5" />
+          Piutang - {storeId === 1 ? "Main Store" : "Branch Store"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="text-center py-8">Loading piutang records...</div>
+        ) : Object.keys(customerPiutangMap).length > 0 ? (
+          <div className="space-y-4">
+            {Object.entries(customerPiutangMap).slice(0, 10).map(([customerId, piutangList]) => {
+              const customer = customers.find(c => c.id === customerId);
+              const totalDebt = piutangList.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+              const totalPaid = piutangList.reduce((sum, p) => sum + parseFloat(p.paidAmount || "0"), 0);
+              const remainingDebt = totalDebt - totalPaid;
+              
+              return (
+                <div 
+                  key={customerId} 
+                  className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
+                  data-testid={`card-piutang-${customerId}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-orange-100">
+                      <Receipt className="h-4 w-4 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">{customer?.name || 'Unknown Customer'}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {piutangList.length} records • Total: {formatRupiah(totalDebt)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`font-semibold ${remainingDebt > 0 ? "text-red-600" : "text-green-600"}`}>
+                      Remaining: {formatRupiah(remainingDebt)}
+                    </span>
+                    <Badge variant={remainingDebt > 0 ? "destructive" : "default"}>
+                      {remainingDebt > 0 ? "Outstanding" : "Paid"}
+                    </Badge>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center text-muted-foreground py-8">
+            <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>No piutang records found for this store</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 // Function to get user name from userId
 function getUserNameFromId(userId: string | null, allUsers: any[] = []): string {
@@ -1276,44 +1492,69 @@ export default function SalesContent() {
             <TrendingUp className="h-5 w-5" />
             Sales Reports
           </CardTitle>
-          <div className="flex gap-3">
-            <Input
-              type="date"
-              placeholder="Start date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-auto"
-              data-testid="input-start-date"
-            />
-            <Input
-              type="date"
-              placeholder="End date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-auto"
-              data-testid="input-end-date"
-            />
-            <Select value={selectedStore} onValueChange={setSelectedStore}>
-              <SelectTrigger className="w-auto" data-testid="select-store-filter">
-                <SelectValue placeholder="All Stores" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Stores</SelectItem>
-                <SelectItem value="1">Main Store</SelectItem>
-                <SelectItem value="2">Branch Store</SelectItem>
-              </SelectContent>
-            </Select>
-            <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                  data-testid="button-import-setoran"
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Import from Setoran
-                </Button>
-              </DialogTrigger>
+        </div>
+        
+        {/* Tabs for different data types by store */}
+        <Tabs defaultValue="sales" className="w-full mt-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="sales" data-testid="tab-sales">
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Sales
+            </TabsTrigger>
+            <TabsTrigger value="cashflow" data-testid="tab-cashflow">
+              <DollarSign className="h-4 w-4 mr-2" />
+              Cash Flow
+            </TabsTrigger>
+            <TabsTrigger value="customer" data-testid="tab-customer">
+              <Users className="h-4 w-4 mr-2" />
+              Customer
+            </TabsTrigger>
+            <TabsTrigger value="piutang" data-testid="tab-piutang">
+              <Receipt className="h-4 w-4 mr-2" />
+              Piutang
+            </TabsTrigger>
+          </TabsList>
+          
+          {/* Sales Tab Content (Original) */}
+          <TabsContent value="sales" className="space-y-4">
+            <div className="flex gap-3">
+              <Input
+                type="date"
+                placeholder="Start date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-auto"
+                data-testid="input-start-date"
+              />
+              <Input
+                type="date"
+                placeholder="End date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-auto"
+                data-testid="input-end-date"
+              />
+              <Select value={selectedStore} onValueChange={setSelectedStore}>
+                <SelectTrigger className="w-auto" data-testid="select-store-filter">
+                  <SelectValue placeholder="All Stores" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Stores</SelectItem>
+                  <SelectItem value="1">Main Store</SelectItem>
+                  <SelectItem value="2">Branch Store</SelectItem>
+                </SelectContent>
+              </Select>
+              <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                    data-testid="button-import-setoran"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Import from Setoran
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Import dari Format Setoran Harian</DialogTitle>
@@ -1626,80 +1867,107 @@ export default function SalesContent() {
           </div>
         )}
       </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="text-center py-8">Loading sales records...</div>
-        ) : salesRecords && salesRecords.length > 0 ? (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead>Hari Ini</TableHead>
-                  <TableHead>Store</TableHead>
-                  <TableHead>Total Liter</TableHead>
-                  <TableHead>Total Penjualan</TableHead>
-                  <TableHead>Total QRIS</TableHead>
-                  <TableHead>Total Cash</TableHead>
-                  <TableHead>Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {salesRecords.map((record) => {
-                  const recordDate = record.date ? new Date(record.date) : new Date();
-                  const today = new Date();
-                  const isToday = recordDate.toDateString() === today.toDateString();
-                  
-                  return (
-                    <TableRow key={record.id}>
-                      <TableCell>
-                        {recordDate.toLocaleDateString('id-ID', { 
-                          year: 'numeric', 
-                          month: 'short', 
-                          day: 'numeric' 
-                        })}
-                      </TableCell>
-                      <TableCell>
-                        {isToday ? (
-                          <Badge variant="default" className="bg-green-100 text-green-800">
-                            Hari Ini
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {record.storeId === 1 ? "Main Store" : "Branch Store"}
-                      </TableCell>
-                      <TableCell className="text-center font-medium">
-                         {record.totalLiters || "0"} L
-                      </TableCell>
-                      <TableCell className="font-semibold text-green-700">
-                        {formatRupiah(record.totalSales)}
-                      </TableCell>
-                      <TableCell className="text-blue-600">
-                        {formatRupiah(record.totalQris || 0)}
-                      </TableCell>
-                      <TableCell className="text-orange-600">
-                        {formatRupiah(record.totalCash || 0)}
-                      </TableCell>
-                      <TableCell>
-                        <MultiSalesDetailModal records={[record]} />
-                      </TableCell>
+
+            {/* Sales Table Content */}
+            {isLoading ? (
+              <div className="text-center py-8">Loading sales records...</div>
+            ) : salesRecords && salesRecords.length > 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Tanggal</TableHead>
+                      <TableHead>Hari Ini</TableHead>
+                      <TableHead>Store</TableHead>
+                      <TableHead>Total Liter</TableHead>
+                      <TableHead>Total Penjualan</TableHead>
+                      <TableHead>Total QRIS</TableHead>
+                      <TableHead>Total Cash</TableHead>
+                      <TableHead>Action</TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        ) : (
-          <div className="text-center text-muted-foreground py-8">
-            <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No sales records found</p>
-            <p className="text-sm">Try adjusting your filters or date range</p>
-          </div>
-        )}
-      </CardContent>
+                  </TableHeader>
+                  <TableBody>
+                    {salesRecords.map((record) => {
+                      const recordDate = record.date ? new Date(record.date) : new Date();
+                      const today = new Date();
+                      const isToday = recordDate.toDateString() === today.toDateString();
+                      
+                      return (
+                        <TableRow key={record.id}>
+                          <TableCell>
+                            {recordDate.toLocaleDateString('id-ID', { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}
+                          </TableCell>
+                          <TableCell>
+                            {isToday ? (
+                              <Badge variant="default" className="bg-green-100 text-green-800">
+                                Hari Ini
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {record.storeId === 1 ? "Main Store" : "Branch Store"}
+                          </TableCell>
+                          <TableCell className="text-center font-medium">
+                             {record.totalLiters || "0"} L
+                          </TableCell>
+                          <TableCell className="font-semibold text-green-700">
+                            {formatRupiah(record.totalSales)}
+                          </TableCell>
+                          <TableCell className="text-blue-600">
+                            {formatRupiah(record.totalQris || 0)}
+                          </TableCell>
+                          <TableCell className="text-orange-600">
+                            {formatRupiah(record.totalCash || 0)}
+                          </TableCell>
+                          <TableCell>
+                            <MultiSalesDetailModal records={[record]} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No sales records found</p>
+                <p className="text-sm">Try adjusting your filters or date range</p>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Cash Flow Tab Content */}
+          <TabsContent value="cashflow" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <StoreCashflowContent storeId={1} />
+              <StoreCashflowContent storeId={2} />
+            </div>
+          </TabsContent>
+
+          {/* Customer Tab Content */}
+          <TabsContent value="customer" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <StoreCustomerContent storeId={1} />
+              <StoreCustomerContent storeId={2} />
+            </div>
+          </TabsContent>
+
+          {/* Piutang Tab Content */}
+          <TabsContent value="piutang" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <StorePiutangContent storeId={1} />
+              <StorePiutangContent storeId={2} />
+            </div>
+          </TabsContent>
+        </Tabs>
+      </CardHeader>
     </Card>
   );
 }
