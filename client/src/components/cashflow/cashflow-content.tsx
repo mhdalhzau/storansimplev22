@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -294,19 +294,25 @@ export default function CashflowContent() {
     let totalInvestment = 0;
 
     records.forEach(record => {
-      const amount = record.category === "Expense" && record.totalPengeluaran 
-        ? parseFloat(record.totalPengeluaran) 
-        : parseFloat(record.amount);
+      // Only use totalPengeluaran for Pembelian Minyak transactions or when totalPengeluaran > 0
+      const useTotal = record.category === "Expense" && 
+        (isPembelianMinyak(record.type) || parseFloat(record.totalPengeluaran ?? '0') > 0);
+      const amount = useTotal 
+        ? parseFloat(record.totalPengeluaran || '0') 
+        : parseFloat(record.amount || '0');
+      
+      // Guard against NaN
+      const safeAmount = isNaN(amount) ? 0 : amount;
       
       switch (record.category) {
         case "Income":
-          totalIncome += amount;
+          totalIncome += safeAmount;
           break;
         case "Expense":
-          totalExpense += amount;
+          totalExpense += safeAmount;
           break;
         case "Investment":
-          totalInvestment += amount;
+          totalInvestment += safeAmount;
           break;
       }
     });
@@ -319,15 +325,16 @@ export default function CashflowContent() {
     };
   };
 
-  const store1Totals = calculateStoreTotals(allCashflowStore1);
-  const store2Totals = calculateStoreTotals(allCashflowStore2);
+  // Memoize calculations for performance
+  const store1Totals = useMemo(() => calculateStoreTotals(allCashflowStore1), [allCashflowStore1]);
+  const store2Totals = useMemo(() => calculateStoreTotals(allCashflowStore2), [allCashflowStore2]);
   
-  const grandTotals = {
+  const grandTotals = useMemo(() => ({
     totalIncome: store1Totals.totalIncome + store2Totals.totalIncome,
     totalExpense: store1Totals.totalExpense + store2Totals.totalExpense,
     totalInvestment: store1Totals.totalInvestment + store2Totals.totalInvestment,
     netFlow: (store1Totals.totalIncome + store2Totals.totalIncome) - (store1Totals.totalExpense + store2Totals.totalExpense) - (store1Totals.totalInvestment + store2Totals.totalInvestment)
-  };
+  }), [store1Totals, store2Totals]);
 
   // Customer creation form
   const customerForm = useForm<z.infer<typeof insertCustomerSchema>>({
@@ -352,7 +359,9 @@ export default function CashflowContent() {
         description: "Cashflow entry saved successfully!",
       });
       form.reset();
-      queryClient.invalidateQueries({ queryKey: ["/api/cashflow", { storeId: currentStoreId }] });
+      // Invalidate both store queries to keep summaries fresh
+      queryClient.invalidateQueries({ queryKey: ["/api/cashflow", { storeId: 1 }] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cashflow", { storeId: 2 }] });
     },
     onError: (error: Error) => {
       toast({
