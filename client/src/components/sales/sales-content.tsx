@@ -1921,72 +1921,347 @@ export default function SalesContent() {
               
         </TabsContent>
 
-          {/* Sales Reports - Branch Store */}
-          <TabsContent value="sales-store-2" className="space-y-4">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold mb-2">Sales Reports - Branch Store (ID: 2)</h3>
-            </div>
-              
-              <div className="flex gap-3">
-                <Input
-                  type="date"
-                  placeholder="Start date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-auto"
-                  data-testid="input-start-date-store-2"
-                />
-                <Input
-                  type="date"
-                  placeholder="End date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-auto"
-                  data-testid="input-end-date-store-2"
-                />
-                <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                      data-testid="button-import-setoran-store-2"
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Import from Setoran
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Import dari Format Setoran Harian - Branch Store</DialogTitle>
-                    </DialogHeader>
-                    {/* Same import dialog content as store 1 */}
-                  </DialogContent>
-                </Dialog>
-                <Button
-                  variant="outline"
-                  onClick={handleExportPDF}
-                  className="text-red-600 border-red-200 hover:bg-red-50"
-                  data-testid="button-export-pdf-store-2"
-                >
-                  <FileDown className="h-4 w-4 mr-2" />
-                  Export PDF
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleExportExcel}
-                  className="text-green-600 border-green-200 hover:bg-green-50"
-                  data-testid="button-export-excel-store-2"
-                >
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Export Excel
-                </Button>
-              </div>
-              
-              {lastSyncTime && (
-                <div className="text-xs text-gray-500 mt-2">
-                  Last sync: {lastSyncTime}
+          {/* Branch Store Sales */}
+          <TabsContent value="store-2" className="space-y-4">
+            <div className="flex gap-3">
+              <Input
+                type="date"
+                placeholder="Start date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-auto"
+                data-testid="input-start-date"
+              />
+              <Input
+                type="date"
+                placeholder="End date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-auto"
+                data-testid="input-end-date"
+              />
+              <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                    data-testid="button-import-setoran"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Import from Setoran
+                  </Button>
+                </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Import dari Format Setoran Harian</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-6">
+                  {!showPreview ? (
+                    // Text input section
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="import-text" className="text-base font-medium">
+                          Paste Format Setoran Harian
+                        </Label>
+                        <p className="text-sm text-gray-600 mb-2">
+                          Paste format setoran harian seperti: "Setoran Harian 📋, Sabtu, 20 September 2025..."
+                        </p>
+                        <Textarea
+                          id="import-text"
+                          placeholder="Paste format setoran harian disini..."
+                          value={importText}
+                          onChange={(e) => setImportText(e.target.value)}
+                          className="min-h-[300px] font-mono text-sm"
+                          data-testid="textarea-import-setoran"
+                        />
+                      </div>
+                      
+                      {/* Validation Errors */}
+                      {validationErrors.length > 0 && (
+                        <Alert variant="destructive">
+                          <AlertTriangle className="h-4 w-4" />
+                          <AlertDescription>
+                            <strong>Errors ditemukan:</strong>
+                            <ul className="mt-1 list-disc pl-4">
+                              {validationErrors.map((error, index) => (
+                                <li key={index} className="text-sm">{error}</li>
+                              ))}
+                            </ul>
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      <div className="bg-blue-50 p-3 rounded-lg">
+                        <p className="text-sm text-blue-800">
+                          <strong>Format yang didukung:</strong><br/>
+                          • Nama staff harus sudah terdaftar di sistem<br/>
+                          • Format tanggal fleksibel: "Sabtu, 20 September 2025" atau "20 September 2025"<br/>
+                          • Format jam: "(07:00 - 14:00)" atau "07:00 - 14:00"<br/>
+                          • Format rupiah: "Rp 95.000" atau "Rp 95,000"<br/>
+                          • Data meter, setoran (Cash/QRIS), pengeluaran dan pemasukan
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    // Preview section
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-medium">Preview Data Parsed</h3>
+                        <Button
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setShowPreview(false);
+                            setParsedData(null);
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Edit Text
+                        </Button>
+                      </div>
+
+                      {parsedData && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Basic Info */}
+                          <Card>
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-sm font-medium">Informasi Dasar</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">Staff:</span>
+                                <span className="text-sm font-medium">{parsedData.staffName}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">Tanggal:</span>
+                                <span className="text-sm font-medium">{parsedData.date}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">Jam:</span>
+                                <span className="text-sm font-medium">{parsedData.jamMasuk} - {parsedData.jamKeluar}</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* Meter Data */}
+                          <Card>
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-sm font-medium">Data Meter</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">Nomor Awal:</span>
+                                <span className="text-sm font-medium">{parsedData.nomorAwal}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">Nomor Akhir:</span>
+                                <span className="text-sm font-medium">{parsedData.nomorAkhir}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">Total Liter:</span>
+                                <span className="text-sm font-medium">{parsedData.totalLiter} L</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* Setoran Data */}
+                          <Card>
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-sm font-medium">Data Setoran</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">Cash:</span>
+                                <span className="text-sm font-medium">{formatRupiah(parsedData.cashSetoran)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">QRIS:</span>
+                                <span className="text-sm font-medium">{formatRupiah(parsedData.qrisSetoran)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">Total:</span>
+                                <span className="text-sm font-medium text-green-600">{formatRupiah(parsedData.totalSetoran)}</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* Financial Summary */}
+                          <Card>
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-sm font-medium">Ringkasan Keuangan</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">Pengeluaran:</span>
+                                <span className="text-sm font-medium text-red-600">{formatRupiah(parsedData.totalExpenses)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">Pemasukan:</span>
+                                <span className="text-sm font-medium text-green-600">{formatRupiah(parsedData.totalIncome)}</span>
+                              </div>
+                              <div className="flex justify-between border-t pt-2">
+                                <span className="text-sm font-medium">Total Keseluruhan:</span>
+                                <span className="text-sm font-bold text-blue-600">{formatRupiah(parsedData.totalKeseluruhan)}</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      )}
+
+                      {/* Expenses and Income Details */}
+                      {parsedData && (parsedData.expenses.length > 0 || parsedData.income.length > 0) && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {parsedData.expenses.length > 0 && (
+                            <Card>
+                              <CardHeader className="pb-3">
+                                <CardTitle className="text-sm font-medium text-red-600">Detail Pengeluaran</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="space-y-1">
+                                  {parsedData.expenses.map((expense: any, index: number) => (
+                                    <div key={index} className="flex justify-between text-xs">
+                                      <span className="truncate mr-2">{expense.description}</span>
+                                      <span className="font-medium">{formatRupiah(expense.amount)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
+
+                          {parsedData.income.length > 0 && (
+                            <Card>
+                              <CardHeader className="pb-3">
+                                <CardTitle className="text-sm font-medium text-green-600">Detail Pemasukan</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="space-y-1">
+                                  {parsedData.income.map((income: any, index: number) => (
+                                    <div key={index} className="flex justify-between text-xs">
+                                      <span className="truncate mr-2">{income.description}</span>
+                                      <span className="font-medium">{formatRupiah(income.amount)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
+                        </div>
+                      )}
+
+                      <Alert>
+                        <CheckCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Data berhasil diparse!</strong> Silakan review data di atas dan klik "Import ke Sales" jika sudah benar.
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  )}
                 </div>
+                <DialogFooter className="gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={resetModal}
+                    disabled={isProcessing}
+                    data-testid="button-cancel-import"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Batal
+                  </Button>
+                  
+                  {!showPreview ? (
+                    <Button
+                      onClick={handleParseText}
+                      disabled={isProcessing || !importText.trim()}
+                      className="bg-blue-600 hover:bg-blue-700"
+                      data-testid="button-parse-text"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Parsing...
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-4 w-4 mr-2" />
+                          Parse & Preview
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleImportSetoran}
+                      disabled={isProcessing || !parsedData}
+                      className="bg-green-600 hover:bg-green-700"
+                      data-testid="button-import-to-sales"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Importing...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Import ke Sales
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Button
+              variant="outline"
+              onClick={handleExportPDF}
+              className="text-red-600 border-red-200 hover:bg-red-50"
+              data-testid="button-export-pdf"
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              Export PDF
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportExcel}
+              className="text-green-600 border-green-200 hover:bg-green-50"
+              data-testid="button-export-excel"
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Export Excel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleSyncToSheets}
+              disabled={isSyncing}
+              className={`${isSyncEnabled ? 'text-purple-600 border-purple-200 hover:bg-purple-50' : 'text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+              data-testid="button-sync-sheets"
+            >
+              {isSyncing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : isSyncEnabled ? (
+                <Wifi className="h-4 w-4 mr-2" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
               )}
+              {isSyncing ? "Syncing..." : "Sync to Sheets"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleSync}
+              className={`${isSyncEnabled ? 'text-green-600 hover:bg-green-50' : 'text-gray-500 hover:bg-gray-50'}`}
+              data-testid="button-toggle-sync"
+              title={isSyncEnabled ? "Disable auto-sync" : "Enable auto-sync"}
+            >
+              {isSyncEnabled ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+            </Button>
+          </div>
+          
+          {lastSyncTime && (
+            <div className="text-xs text-gray-500 mt-2">
+              Last sync: {lastSyncTime}
+            </div>
+          )}
 
               {/* Sales Table Content for Branch Store */}
               {isLoading ? (
