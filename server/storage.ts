@@ -701,11 +701,8 @@ export class MemStorage implements IStorage {
     };
     this.salesRecords.set(id, record);
 
-    // Auto-create expense for QRIS payments to piutang manager
-    const qrisAmount = parseFloat(record.totalQris || "0");
-    if (qrisAmount > 0) {
-      await this.createQrisExpenseForManager(record);
-    }
+    // QRIS payments are income, not expenses - removing incorrect expense creation
+    // If needed, QRIS income can be recorded as regular cashflow income entry
 
     return record;
   }
@@ -1117,45 +1114,19 @@ export class MemStorage implements IStorage {
     return { piutang: updatedPiutang, cashflow };
   }
 
-  // Helper methods for QRIS management
-  async findOrCreatePiutangManager(storeId: number): Promise<Customer> {
-    // Check if "Piutang Manager" customer already exists for this store
-    const existingCustomer = Array.from(this.customerRecords.values()).find(
-      customer => customer.name.toLowerCase() === 'piutang manager' && customer.storeId === storeId
-    );
-
-    if (existingCustomer) {
-      return existingCustomer;
-    }
-
-    // Create new "Piutang Manager" customer for QRIS expense management
-    const piutangManagerCustomer: InsertCustomer = {
-      name: "Piutang Manager",
-      email: "piutang.manager@company.internal",
-      phone: null,
-      address: "Internal Company Account - QRIS Expense Management",
-      type: "employee",
-      storeId: storeId
-    };
-
-    return await this.createCustomer(piutangManagerCustomer);
-  }
-
-  async createQrisExpenseForManager(salesRecord: Sales): Promise<void> {
+  // Helper method to create QRIS income entry (optional)
+  async createQrisIncomeEntry(salesRecord: Sales, customerId?: string): Promise<void> {
     const qrisAmount = parseFloat(salesRecord.totalQris || "0");
     if (qrisAmount <= 0) return;
 
-    // Find or create Piutang Manager customer
-    const piutangManagerCustomer = await this.findOrCreatePiutangManager(salesRecord.storeId);
-
-    // Create cashflow entry as company expense to piutang manager
+    // Create cashflow entry as income from QRIS payment
     const cashflowData: InsertCashflow = {
       storeId: salesRecord.storeId,
-      category: "Expense",
-      type: "QRIS Manager Expense",
+      category: "Income",
+      type: "QRIS Payment",
       amount: salesRecord.totalQris || "0",
-      description: `QRIS Payment Expense to Piutang Manager - Sales: ${salesRecord.id} - ${new Date(salesRecord.date).toLocaleDateString('id-ID')}`,
-      customerId: piutangManagerCustomer.id,
+      description: `QRIS Payment Income - Sales: ${salesRecord.id} - ${new Date(salesRecord.date).toLocaleDateString('id-ID')}`,
+      customerId: customerId || null,
       paymentStatus: "lunas",
       date: salesRecord.date
     };
