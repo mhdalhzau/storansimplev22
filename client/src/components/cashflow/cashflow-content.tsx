@@ -270,6 +270,65 @@ export default function CashflowContent() {
   // Filter customers based on search term
   const filteredCustomers = customerSearchTerm.length > 0 ? searchResults : customers;
 
+  // Query for all stores cashflow data to calculate grand totals
+  const { data: allCashflowStore1 = [] } = useQuery<Cashflow[]>({
+    queryKey: ["/api/cashflow", { storeId: 1 }],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/cashflow?storeId=1`);
+      return await res.json();
+    },
+  });
+
+  const { data: allCashflowStore2 = [] } = useQuery<Cashflow[]>({
+    queryKey: ["/api/cashflow", { storeId: 2 }],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/cashflow?storeId=2`);
+      return await res.json();
+    },
+  });
+
+  // Calculate totals for each store and overall
+  const calculateStoreTotals = (records: Cashflow[]) => {
+    let totalIncome = 0;
+    let totalExpense = 0;
+    let totalInvestment = 0;
+
+    records.forEach(record => {
+      const amount = record.category === "Expense" && record.totalPengeluaran 
+        ? parseFloat(record.totalPengeluaran) 
+        : parseFloat(record.amount);
+      
+      switch (record.category) {
+        case "Income":
+          totalIncome += amount;
+          break;
+        case "Expense":
+          totalExpense += amount;
+          break;
+        case "Investment":
+          totalInvestment += amount;
+          break;
+      }
+    });
+
+    return {
+      totalIncome,
+      totalExpense,
+      totalInvestment,
+      netFlow: totalIncome - totalExpense - totalInvestment
+    };
+  };
+
+  const store1Totals = calculateStoreTotals(allCashflowStore1);
+  const store2Totals = calculateStoreTotals(allCashflowStore2);
+  
+  const grandTotals = {
+    totalIncome: store1Totals.totalIncome + store2Totals.totalIncome,
+    totalExpense: store1Totals.totalExpense + store2Totals.totalExpense,
+    totalInvestment: store1Totals.totalInvestment + store2Totals.totalInvestment,
+    netFlow: (store1Totals.totalIncome + store2Totals.totalIncome) - (store1Totals.totalExpense + store2Totals.totalExpense) - (store1Totals.totalInvestment + store2Totals.totalInvestment)
+  };
+
   // Customer creation form
   const customerForm = useForm<z.infer<typeof insertCustomerSchema>>({
     resolver: zodResolver(insertCustomerSchema),
