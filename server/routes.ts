@@ -1028,6 +1028,28 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
+      // Find user ID by employee name from text
+      if (salesData.employeeName) {
+        try {
+          const users = await storage.getUsers();
+          const matchingUser = users.find(user => 
+            user.name.toLowerCase().trim() === salesData.employeeName.toLowerCase().trim()
+          );
+          
+          if (matchingUser) {
+            // Use the employee's user ID instead of uploader's ID
+            salesData.userId = matchingUser.id;
+            console.log(`Found matching user for employee: ${salesData.employeeName} -> ${matchingUser.id}`);
+          } else {
+            console.log(`No matching user found for employee: ${salesData.employeeName}, using uploader ID`);
+            // Keep using uploader's ID as fallback
+          }
+        } catch (error) {
+          console.log('Error finding user by name:', error);
+          // Keep using uploader's ID as fallback
+        }
+      }
+
       // Create sales record
       const newSales = await storage.createSales(salesData);
 

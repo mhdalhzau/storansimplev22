@@ -30,6 +30,8 @@ function getUserNameFromId(userId: string | null, allUsers: any[] = []): string 
 function TextImportModal({ storeId, storeName }: { storeId: number; storeName: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [textData, setTextData] = useState("");
+  const [parsedData, setParsedData] = useState<any>(null);
+  const [step, setStep] = useState<"input" | "preview">("input");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -45,6 +47,8 @@ function TextImportModal({ storeId, storeName }: { storeId: number; storeName: s
       });
       queryClient.invalidateQueries({ queryKey: ['/api/sales'] });
       setTextData("");
+      setParsedData(null);
+      setStep("input");
       setIsOpen(false);
     },
     onError: (error: any) => {
@@ -56,20 +60,172 @@ function TextImportModal({ storeId, storeName }: { storeId: number; storeName: s
     },
   });
 
-  const handleImport = () => {
+  // Parse text locally for preview
+  const parseTextForPreview = (text: string) => {
+    const lines = text.split('\n').map(line => line.trim());
+    
+    const data: any = {
+      employeeName: null,
+      shift: null,
+      checkIn: null,
+      checkOut: null,
+      meterStart: null,
+      meterEnd: null,
+      totalLiters: null,
+      totalCash: null,
+      totalQris: null,
+      totalSales: null,
+      totalIncome: null,
+      totalExpenses: null,
+      expenseDetails: [],
+      incomeDetails: [],
+    };
+
+    // Parse employee name and time
+    for (const line of lines) {
+      if (line.includes('Nama:')) {
+        const nameMatch = line.match(/Nama:\s*(.+)/);
+        if (nameMatch) data.employeeName = nameMatch[1].trim();
+      }
+
+      if (line.includes('Jam:')) {
+        const timeMatch = line.match(/Jam:\s*\((\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})\)/);
+        if (timeMatch) {
+          data.checkIn = timeMatch[1];
+          data.checkOut = timeMatch[2];
+          
+          const startHour = parseInt(timeMatch[1].split(':')[0]);
+          if (startHour >= 6 && startHour < 14) {
+            data.shift = 'pagi';
+          } else if (startHour >= 14 && startHour < 22) {
+            data.shift = 'siang';
+          } else {
+            data.shift = 'malam';
+          }
+        }
+      }
+
+      // Extract meter data
+      if (line.includes('Nomor Awal')) {
+        const match = line.match(/Nomor Awal\s*:\s*(\d+(?:\.\d+)?)/);
+        if (match) data.meterStart = parseFloat(match[1]);
+      }
+      if (line.includes('Nomor Akhir')) {
+        const match = line.match(/Nomor Akhir\s*:\s*(\d+(?:\.\d+)?)/);
+        if (match) data.meterEnd = parseFloat(match[1]);
+      }
+      if (line.includes('Total Liter')) {
+        const match = line.match(/Total Liter\s*:\s*(\d+(?:\.\d+)?)/);
+        if (match) data.totalLiters = parseFloat(match[1]);
+      }
+
+      // Extract payment data
+      if (line.includes('Cash') && line.includes('Rp')) {
+        const match = line.match(/Cash\s*:\s*Rp\s*([\d,.]+)/);
+        if (match) {
+          data.totalCash = parseFloat(match[1].replace(/[,.]/g, ''));
+        }
+      }
+      if (line.includes('QRIS') && line.includes('Rp')) {
+        const match = line.match(/QRIS\s*:\s*Rp\s*([\d,.]+)/);
+        if (match) {
+          data.totalQris = parseFloat(match[1].replace(/[,.]/g, ''));
+        }
+      }
+
+      // Extract totals
+      if (line.includes('Total Pengeluaran')) {
+        const match = line.match(/Total Pengeluaran\s*:\s*Rp\s*([\d,.]+)/);
+        if (match) {
+          data.totalExpenses = parseFloat(match[1].replace(/[,.]/g, ''));
+        }
+      }
+
+      if (line.includes('Total Pemasukan')) {
+        const match = line.match(/Total Pemasukan\s*:\s*Rp\s*([\d,.]+)/);
+        if (match) {
+          data.totalIncome = parseFloat(match[1].replace(/[,.]/g, ''));
+        }
+      }
+
+      if (line.includes('Total Keseluruhan')) {
+        const match = line.match(/Total Keseluruhan\s*:\s*Rp\s*([\d,.]+)/);
+        if (match) {
+          data.totalSales = parseFloat(match[1].replace(/[,.]/g, ''));
+        }
+      }
+    }
+
+    // Parse detailed expenses and income
+    let inExpenseSection = false;
+    let inIncomeSection = false;
+    
+    for (const line of lines) {
+      if (line.includes('💸 Pengeluaran')) {
+        inExpenseSection = true;
+        inIncomeSection = false;
+        continue;
+      }
+      if (line.includes('💵 Pemasukan')) {
+        inIncomeSection = true;
+        inExpenseSection = false;
+        continue;
+      }
+      if (line.includes('💼 Total Keseluruhan')) {
+        inExpenseSection = false;
+        inIncomeSection = false;
+        continue;
+      }
+
+      if (inExpenseSection && line.includes(':') && line.includes('Rp')) {
+        const match = line.match(/\*\s*(.+):\s*Rp\s*([\d,.]+)/);
+        if (match) {
+          data.expenseDetails.push({
+            description: match[1].trim(),
+            amount: parseFloat(match[2].replace(/[,.]/g, ''))
+          });
+        }
+      }
+
+      if (inIncomeSection && line.includes(':') && line.includes('Rp')) {
+        const match = line.match(/\*\s*(.+):\s*Rp\s*([\d,.]+)/);
+        if (match) {
+          data.incomeDetails.push({
+            description: match[1].trim(),
+            amount: parseFloat(match[2].replace(/[,.]/g, ''))
+          });
+        }
+      }
+    }
+
+    return data;
+  };
+
+  const handleParseAndPreview = () => {
     if (!textData.trim()) {
       toast({
         title: "Error",
-        description: "Please enter text data to import",
+        description: "Please enter text data to parse",
         variant: "destructive",
       });
       return;
     }
 
+    const parsed = parseTextForPreview(textData.trim());
+    setParsedData(parsed);
+    setStep("preview");
+  };
+
+  const handleConfirmImport = () => {
     importTextMutation.mutate({
       storeId,
       textData: textData.trim()
     });
+  };
+
+  const handleBackToInput = () => {
+    setStep("input");
+    setParsedData(null);
   };
 
   return (
@@ -84,20 +240,22 @@ function TextImportModal({ storeId, storeName }: { storeId: number; storeName: s
           Import Text ({storeName})
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
             Import Setoran Harian - {storeName}
+            {step === "preview" && " - Data Preview"}
           </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="import-text">Paste Setoran Harian Text</Label>
-            <Textarea
-              id="import-text"
-              placeholder={`Setoran Harian 📋
+        {step === "input" ? (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="import-text">Paste Setoran Harian Text</Label>
+              <Textarea
+                id="import-text"
+                placeholder={`Setoran Harian 📋
 Sabtu, 20 September 2025
 🤦‍♀️ Nama: Hafiz
 🕐 Jam: (07:00 - 14:00)
@@ -124,48 +282,215 @@ Total Pemasukan: Rp 100.000
 💼 Total Keseluruhan: Rp 95.000
 07:00 = Jam Masuk
 14:00 = Jam Keluar`}
-              value={textData}
-              onChange={(e) => setTextData(e.target.value)}
-              rows={15}
-              className="w-full"
-              data-testid="textarea-import-text"
-            />
+                value={textData}
+                onChange={(e) => setTextData(e.target.value)}
+                rows={15}
+                className="w-full"
+                data-testid="textarea-import-text"
+              />
+            </div>
+            
+            <Alert>
+              <Upload className="h-4 w-4" />
+              <AlertDescription>
+                Paste the complete "Setoran Harian" text above. Click "Parse & Preview" to see how the data will be imported.
+              </AlertDescription>
+            </Alert>
           </div>
-          
-          <Alert>
-            <Upload className="h-4 w-4" />
-            <AlertDescription>
-              Paste the complete "Setoran Harian" text above. The system will automatically parse:
-              employee name, shift times, meter readings, cash/QRIS amounts, expenses, income, and totals.
-            </AlertDescription>
-          </Alert>
-        </div>
+        ) : (
+          <div className="space-y-6">
+            <Alert>
+              <Eye className="h-4 w-4" />
+              <AlertDescription>
+                Review the parsed data below. If it looks correct, click "Confirm Import" to save to the table.
+              </AlertDescription>
+            </Alert>
+
+            {/* Parsed Data Preview */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Basic Info */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Employee & Shift Info</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="font-medium">Employee:</span>
+                    <span className={parsedData?.employeeName ? "text-green-600" : "text-red-500"}>
+                      {parsedData?.employeeName || "Not detected"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Shift:</span>
+                    <Badge variant="outline" className="capitalize">
+                      {parsedData?.shift || "Not detected"}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Check In:</span>
+                    <span className={parsedData?.checkIn ? "text-green-600" : "text-red-500"}>
+                      {parsedData?.checkIn || "Not detected"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Check Out:</span>
+                    <span className={parsedData?.checkOut ? "text-green-600" : "text-red-500"}>
+                      {parsedData?.checkOut || "Not detected"}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Meter Data */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Meter Readings</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="font-medium">Start:</span>
+                    <span className={parsedData?.meterStart ? "text-green-600" : "text-red-500"}>
+                      {parsedData?.meterStart || "Not detected"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">End:</span>
+                    <span className={parsedData?.meterEnd ? "text-green-600" : "text-red-500"}>
+                      {parsedData?.meterEnd || "Not detected"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Total Liters:</span>
+                    <span className={parsedData?.totalLiters ? "text-green-600" : "text-red-500"}>
+                      {parsedData?.totalLiters ? `${parsedData.totalLiters} L` : "Not detected"}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Payment Data */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Payment Breakdown</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="font-medium">Cash:</span>
+                    <span className={parsedData?.totalCash ? "text-green-600" : "text-red-500"}>
+                      {parsedData?.totalCash ? `Rp ${parsedData.totalCash.toLocaleString('id-ID')}` : "Not detected"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">QRIS:</span>
+                    <span className={parsedData?.totalQris ? "text-green-600" : "text-red-500"}>
+                      {parsedData?.totalQris ? `Rp ${parsedData.totalQris.toLocaleString('id-ID')}` : "Not detected"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Total Sales:</span>
+                    <span className={parsedData?.totalSales ? "text-green-600 font-bold" : "text-red-500"}>
+                      {parsedData?.totalSales ? `Rp ${parsedData.totalSales.toLocaleString('id-ID')}` : "Not detected"}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Income & Expenses */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Income & Expenses</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="font-medium">Total Income:</span>
+                    <span className={parsedData?.totalIncome ? "text-green-600" : "text-gray-400"}>
+                      {parsedData?.totalIncome ? `Rp ${parsedData.totalIncome.toLocaleString('id-ID')}` : "Rp 0"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Total Expenses:</span>
+                    <span className={parsedData?.totalExpenses ? "text-red-600" : "text-gray-400"}>
+                      {parsedData?.totalExpenses ? `Rp ${parsedData.totalExpenses.toLocaleString('id-ID')}` : "Rp 0"}
+                    </span>
+                  </div>
+                  
+                  {parsedData?.expenseDetails?.length > 0 && (
+                    <div className="mt-3">
+                      <span className="text-sm font-medium text-gray-600">Expense Details:</span>
+                      {parsedData.expenseDetails.map((item: any, index: number) => (
+                        <div key={index} className="text-sm flex justify-between ml-2">
+                          <span>{item.description}:</span>
+                          <span>Rp {item.amount.toLocaleString('id-ID')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {parsedData?.incomeDetails?.length > 0 && (
+                    <div className="mt-3">
+                      <span className="text-sm font-medium text-gray-600">Income Details:</span>
+                      {parsedData.incomeDetails.map((item: any, index: number) => (
+                        <div key={index} className="text-sm flex justify-between ml-2">
+                          <span>{item.description}:</span>
+                          <span>Rp {item.amount.toLocaleString('id-ID')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
 
         <DialogFooter className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => setIsOpen(false)}
-            data-testid="button-cancel-import"
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleImport}
-            disabled={importTextMutation.isPending || !textData.trim()}
-            data-testid="button-confirm-import"
-          >
-            {importTextMutation.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Importing...
-              </>
-            ) : (
-              <>
-                <Upload className="h-4 w-4 mr-2" />
-                Import Data
-              </>
-            )}
-          </Button>
+          {step === "input" ? (
+            <>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsOpen(false)}
+                data-testid="button-cancel-import"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleParseAndPreview}
+                disabled={!textData.trim()}
+                data-testid="button-parse-preview"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Parse & Preview
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button 
+                variant="outline" 
+                onClick={handleBackToInput}
+                data-testid="button-back-to-input"
+              >
+                Back to Edit
+              </Button>
+              <Button 
+                onClick={handleConfirmImport}
+                disabled={importTextMutation.isPending || !parsedData?.totalSales}
+                data-testid="button-confirm-import"
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {importTextMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Confirm Import
+                  </>
+                )}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
