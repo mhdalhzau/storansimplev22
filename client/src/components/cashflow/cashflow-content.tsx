@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -322,7 +323,23 @@ export default function CashflowContent() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="space-y-6">
+      {/* Store tabs for Cashflow filtering */}
+      <Tabs defaultValue="store-1" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="store-1" data-testid="tab-cashflow-store-1">
+            <DollarSign className="h-4 w-4 mr-2" />
+            Main Store (ID: 1)
+          </TabsTrigger>
+          <TabsTrigger value="store-2" data-testid="tab-cashflow-store-2">
+            <DollarSign className="h-4 w-4 mr-2" />
+            Branch Store (ID: 2)
+          </TabsTrigger>
+        </TabsList>
+        
+        {/* Main Store Cashflow */}
+        <TabsContent value="store-1" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Add Cashflow Entry */}
       <Card>
         <CardHeader>
@@ -1036,6 +1053,195 @@ export default function CashflowContent() {
           </Form>
         </DialogContent>
       </Dialog>
+          </div>
+        </TabsContent>
+        
+        {/* Branch Store Cashflow */}
+        <TabsContent value="store-2" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Add Cashflow Entry - Branch Store */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Add Cashflow Entry - Branch Store
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Category</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-category-store-2">
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Income">Income</SelectItem>
+                              <SelectItem value="Expense">Expense</SelectItem>
+                              <SelectItem value="Investment">Investment</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Type</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-type-store-2">
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {watchCategory === "Income" && incomeTypes.map((type) => (
+                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                              ))}
+                              {watchCategory === "Expense" && expenseTypes.map((type) => (
+                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                              ))}
+                              {watchCategory === "Investment" && investmentTypes.map((type) => (
+                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="amount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Amount</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              step="0.01"
+                              placeholder="0.00"
+                              data-testid="input-amount-store-2"
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description (Optional)</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Enter description"
+                              data-testid="textarea-description-store-2"
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <Button 
+                      type="submit" 
+                      className="w-full"
+                      disabled={submitCashflowMutation.isPending}
+                      data-testid="button-submit-cashflow-store-2"
+                    >
+                      {submitCashflowMutation.isPending ? "Adding..." : "Add Entry"}
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+            
+            {/* Cashflow Records - Branch Store */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Cashflow Records - Branch Store
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="text-center py-8">Loading cashflow records...</div>
+                ) : cashflowRecords && cashflowRecords.filter(record => record.storeId === 2).length > 0 ? (
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {cashflowRecords.filter(record => record.storeId === 2).map((entry) => (
+                      <div 
+                        key={entry.id} 
+                        className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setSelectedEntry(entry);
+                          setIsDetailModalOpen(true);
+                        }}
+                        data-testid={`cashflow-entry-${entry.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-full ${
+                            entry.category === "Income" ? "bg-green-100 text-green-600" :
+                            entry.category === "Expense" ? "bg-red-100 text-red-600" :
+                            "bg-blue-100 text-blue-600"
+                          }`}>
+                            {entry.category === "Income" ? <TrendingUp className="h-4 w-4" /> :
+                             entry.category === "Expense" ? <TrendingDown className="h-4 w-4" /> :
+                             <DollarSign className="h-4 w-4" />}
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {entry.description || `${entry.category} - ${entry.type}`}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {entry.category} • {entry.type}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-semibold ${
+                            entry.category === "Income" ? "text-green-600" : "text-red-600"
+                          }`}>
+                            {entry.category === "Income" ? "+" : "-"}Rp {parseInt(
+                              entry.category === "Expense" && entry.totalPengeluaran 
+                                ? entry.totalPengeluaran 
+                                : entry.amount
+                            ).toLocaleString('id-ID')}
+                          </span>
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No cashflow records found for Branch Store</p>
+                    <p className="text-sm">Add your first entry using the form</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

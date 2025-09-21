@@ -1494,32 +1494,21 @@ export default function SalesContent() {
           </CardTitle>
         </div>
         
-        {/* Separate tabs for Sales Reports and Cashflow by store */}
-        <Tabs defaultValue="sales-store-1" className="w-full mt-4">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="sales-store-1" data-testid="tab-sales-store-1">
+        {/* Store tabs for Sales Reports */}
+        <Tabs defaultValue="store-1" className="w-full mt-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="store-1" data-testid="tab-store-1">
               <TrendingUp className="h-4 w-4 mr-2" />
-              Sales - Main Store
+              Main Store (ID: 1)
             </TabsTrigger>
-            <TabsTrigger value="sales-store-2" data-testid="tab-sales-store-2">
+            <TabsTrigger value="store-2" data-testid="tab-store-2">
               <TrendingUp className="h-4 w-4 mr-2" />
-              Sales - Branch Store
-            </TabsTrigger>
-            <TabsTrigger value="cashflow-store-1" data-testid="tab-cashflow-store-1">
-              <DollarSign className="h-4 w-4 mr-2" />
-              Cashflow - Main Store
-            </TabsTrigger>
-            <TabsTrigger value="cashflow-store-2" data-testid="tab-cashflow-store-2">
-              <DollarSign className="h-4 w-4 mr-2" />
-              Cashflow - Branch Store
+              Branch Store (ID: 2)
             </TabsTrigger>
           </TabsList>
           
-          {/* Sales Reports - Main Store */}
-          <TabsContent value="sales-store-1" className="space-y-4">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold mb-2">Sales Reports - Main Store (ID: 1)</h3>
-            </div>
+          {/* Main Store Sales */}
+          <TabsContent value="store-1" className="space-y-4">
             <div className="flex gap-3">
               <Input
                 type="date"
