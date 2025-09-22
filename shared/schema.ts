@@ -20,6 +20,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   name: text("name").notNull(),
   role: text("role").notNull(), // 'staff', 'manager', 'administrasi'
+  phone: text("phone"), // Phone number field
   salary: decimal("salary", { precision: 12, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
 });

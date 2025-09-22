@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +48,7 @@ export default function PayrollContent() {
   // Fetch attendance data when selectedPayroll changes
   const { data: allAttendanceRecords } = useQuery<Array<any>>({
     queryKey: [`/api/attendance/user/${selectedPayroll?.userId}`],
-    enabled: !!selectedPayroll && attendanceDialogOpen,
+    enabled: !!selectedPayroll && (attendanceDialogOpen || detailDialogOpen),
   });
 
   // Filter attendance records for the current month
@@ -122,16 +122,6 @@ export default function PayrollContent() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/payroll"] });
       setBonusDialogOpen(false);
-      
-      // Update selected payroll to trigger immediate UI refresh
-      setTimeout(() => {
-        if (selectedPayroll) {
-          const updatedRecord = processedRecords.find(record => record.id === selectedPayroll.id);
-          if (updatedRecord) {
-            setSelectedPayroll(updatedRecord);
-          }
-        }
-      }, 100);
     },
   });
 
@@ -190,13 +180,15 @@ export default function PayrollContent() {
     };
   }) || [];
 
-  // Update selectedPayroll when processedRecords changes
-  if (selectedPayroll && processedRecords.length > 0) {
-    const updatedSelected = processedRecords.find(record => record.id === selectedPayroll.id);
-    if (updatedSelected && JSON.stringify(updatedSelected) !== JSON.stringify(selectedPayroll)) {
-      setSelectedPayroll(updatedSelected);
+  // Auto-update selectedPayroll when processedRecords changes
+  useEffect(() => {
+    if (selectedPayroll && processedRecords.length > 0) {
+      const updatedSelected = processedRecords.find(record => record.id === selectedPayroll.id);
+      if (updatedSelected) {
+        setSelectedPayroll(updatedSelected);
+      }
     }
-  }
+  }, [processedRecords, selectedPayroll?.id]);
 
   return (
     <Card>
@@ -367,6 +359,7 @@ export default function PayrollContent() {
             </div>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh]">
+            <div ref={printRef} className="print-content">
             <div className="space-y-6">
               {/* Monthly Calendar Table */}
               <div>
@@ -608,6 +601,7 @@ export default function PayrollContent() {
                 );
               })()}
             </div>
+            </div>
           </ScrollArea>
         </DialogContent>
       </Dialog>
@@ -837,7 +831,7 @@ export default function PayrollContent() {
         <div ref={printRef} className="p-8 bg-white text-black">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold">{selectedPayroll?.store?.name}</h1>
-            <h2 className="text-lg font-semibold mt-2">PAYROLL SLIP</h2>
+            <h2 className="text-lg font-semibold mt-2">SLIP GAJI</h2>
             <p className="text-sm mt-2">Period: {selectedPayroll?.month}</p>
           </div>
           
@@ -849,8 +843,8 @@ export default function PayrollContent() {
                 <span>{selectedPayroll?.user?.name}</span>
               </div>
               <div>
-                <span className="font-medium">Employee ID: </span>
-                <span>{selectedPayroll?.userId}</span>
+                <span className="font-medium">Phone: </span>
+                <span>{selectedPayroll?.user?.phone || 'No phone'}</span>
               </div>
             </div>
           </div>
@@ -885,6 +879,79 @@ export default function PayrollContent() {
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          {/* Attendance Table */}
+          <div className="mb-6">
+            <h3 className="font-semibold border-b pb-2">Attendance Details</h3>
+            <div className="mt-3">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2">Date</th>
+                    <th className="text-left py-2">Day</th>
+                    <th className="text-left py-2">Check In</th>
+                    <th className="text-left py-2">Check Out</th>
+                    <th className="text-left py-2">Status</th>
+                    <th className="text-left py-2">Overtime (Hours)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    if (!selectedPayroll?.month) return null;
+                    
+                    const [year, month] = selectedPayroll.month.split('-').map(Number);
+                    const daysInMonth = new Date(year, month, 0).getDate();
+                    const monthlyDays = Array.from({ length: daysInMonth }, (_, i) => {
+                      const day = i + 1;
+                      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                      const attendance = attendanceRecords.find(record => {
+                        const recordDate = new Date(record.date || record.createdAt);
+                        return recordDate.toISOString().split('T')[0] === dateStr;
+                      });
+                      
+                      return {
+                        date: dateStr,
+                        day: day,
+                        dayName: new Date(dateStr).toLocaleDateString('id-ID', { weekday: 'short' }),
+                        attendance
+                      };
+                    });
+                    
+                    return monthlyDays.map(({ date, day, dayName, attendance }) => {
+                      const overtimeHours = attendance?.overtimeMinutes ? (attendance.overtimeMinutes / 60).toFixed(1) : '0';
+                      
+                      return (
+                        <tr key={date} className="border-b text-xs">
+                          <td className="py-1">{day}</td>
+                          <td className="py-1">{dayName}</td>
+                          <td className="py-1">{attendance?.checkIn || '-'}</td>
+                          <td className="py-1">{attendance?.checkOut || '-'}</td>
+                          <td className="py-1">{attendance?.attendanceStatus || 'No data'}</td>
+                          <td className="py-1">{overtimeHours !== '0' ? `${overtimeHours} hrs` : '-'}</td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+              
+              {/* Summary Statistics */}
+              <div className="mt-4 grid grid-cols-3 gap-4 text-center text-sm">
+                <div>
+                  <div className="font-bold text-lg">{attendanceRecords.filter(a => a.attendanceStatus === 'hadir').length}</div>
+                  <div className="text-gray-600">Work Days</div>
+                </div>
+                <div>
+                  <div className="font-bold text-lg">{(attendanceRecords.reduce((sum, a) => sum + (a.overtimeMinutes || 0), 0) / 60).toFixed(1)}</div>
+                  <div className="text-gray-600">Total OT Hours</div>
+                </div>
+                <div>
+                  <div className="font-bold text-lg">{attendanceRecords.filter(a => a.attendanceStatus === 'alpha').length}</div>
+                  <div className="text-gray-600">Absent Days</div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="mt-8 text-center">
