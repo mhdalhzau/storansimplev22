@@ -184,11 +184,12 @@ export default function PayrollContent() {
   useEffect(() => {
     if (selectedPayroll && processedRecords.length > 0) {
       const updatedSelected = processedRecords.find(record => record.id === selectedPayroll.id);
-      if (updatedSelected) {
+      if (updatedSelected && JSON.stringify(updatedSelected.bonusList) !== JSON.stringify(selectedPayroll.bonusList) ||
+          JSON.stringify(updatedSelected.deductionList) !== JSON.stringify(selectedPayroll.deductionList)) {
         setSelectedPayroll(updatedSelected);
       }
     }
-  }, [processedRecords, selectedPayroll?.id]);
+  }, [processedRecords.length, selectedPayroll?.id]);
 
   return (
     <Card>
@@ -826,139 +827,6 @@ export default function PayrollContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Print Template (Hidden) */}
-      <div style={{ display: 'none' }}>
-        <div ref={printRef} className="p-8 bg-white text-black">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold">{selectedPayroll?.store?.name}</h1>
-            <h2 className="text-lg font-semibold mt-2">SLIP GAJI</h2>
-            <p className="text-sm mt-2">Period: {selectedPayroll?.month}</p>
-          </div>
-          
-          <div className="mb-6">
-            <h3 className="font-semibold border-b pb-2">Employee Information</h3>
-            <div className="grid grid-cols-2 gap-4 mt-3">
-              <div>
-                <span className="font-medium">Name: </span>
-                <span>{selectedPayroll?.user?.name}</span>
-              </div>
-              <div>
-                <span className="font-medium">Phone: </span>
-                <span>{selectedPayroll?.user?.phone || 'No phone'}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <h3 className="font-semibold border-b pb-2">Salary Details</h3>
-            <table className="w-full mt-3">
-              <tbody>
-                <tr className="border-b">
-                  <td className="py-2">Base Salary</td>
-                  <td className="py-2 text-right">{formatRupiah(selectedPayroll?.baseSalary || 0)}</td>
-                </tr>
-                <tr className="border-b">
-                  <td className="py-2">Overtime Pay</td>
-                  <td className="py-2 text-right">{formatRupiah(selectedPayroll?.overtimePay || 0)}</td>
-                </tr>
-                {selectedPayroll?.bonusList?.map((bonus, index) => (
-                  <tr key={`bonus-${index}`} className="border-b text-green-700">
-                    <td className="py-2">+ {bonus.name}</td>
-                    <td className="py-2 text-right">{formatRupiah(bonus.amount)}</td>
-                  </tr>
-                ))}
-                {selectedPayroll?.deductionList?.map((deduction, index) => (
-                  <tr key={`deduction-${index}`} className="border-b text-red-700">
-                    <td className="py-2">- {deduction.name}</td>
-                    <td className="py-2 text-right">-{formatRupiah(deduction.amount)}</td>
-                  </tr>
-                ))}
-                <tr className="border-t-2 border-black font-bold">
-                  <td className="py-2">Total Amount</td>
-                  <td className="py-2 text-right">{formatRupiah(selectedPayroll?.totalAmount || 0)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* Attendance Table */}
-          <div className="mb-6">
-            <h3 className="font-semibold border-b pb-2">Attendance Details</h3>
-            <div className="mt-3">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2">Date</th>
-                    <th className="text-left py-2">Day</th>
-                    <th className="text-left py-2">Check In</th>
-                    <th className="text-left py-2">Check Out</th>
-                    <th className="text-left py-2">Status</th>
-                    <th className="text-left py-2">Overtime (Hours)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    if (!selectedPayroll?.month) return null;
-                    
-                    const [year, month] = selectedPayroll.month.split('-').map(Number);
-                    const daysInMonth = new Date(year, month, 0).getDate();
-                    const monthlyDays = Array.from({ length: daysInMonth }, (_, i) => {
-                      const day = i + 1;
-                      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                      const attendance = attendanceRecords.find(record => {
-                        const recordDate = new Date(record.date || record.createdAt);
-                        return recordDate.toISOString().split('T')[0] === dateStr;
-                      });
-                      
-                      return {
-                        date: dateStr,
-                        day: day,
-                        dayName: new Date(dateStr).toLocaleDateString('id-ID', { weekday: 'short' }),
-                        attendance
-                      };
-                    });
-                    
-                    return monthlyDays.map(({ date, day, dayName, attendance }) => {
-                      const overtimeHours = attendance?.overtimeMinutes ? (attendance.overtimeMinutes / 60).toFixed(1) : '0';
-                      
-                      return (
-                        <tr key={date} className="border-b text-xs">
-                          <td className="py-1">{day}</td>
-                          <td className="py-1">{dayName}</td>
-                          <td className="py-1">{attendance?.checkIn || '-'}</td>
-                          <td className="py-1">{attendance?.checkOut || '-'}</td>
-                          <td className="py-1">{attendance?.attendanceStatus || 'No data'}</td>
-                          <td className="py-1">{overtimeHours !== '0' ? `${overtimeHours} hrs` : '-'}</td>
-                        </tr>
-                      );
-                    });
-                  })()}
-                </tbody>
-              </table>
-              
-              {/* Summary Statistics */}
-              <div className="mt-4 grid grid-cols-3 gap-4 text-center text-sm">
-                <div>
-                  <div className="font-bold text-lg">{attendanceRecords.filter(a => a.attendanceStatus === 'hadir').length}</div>
-                  <div className="text-gray-600">Work Days</div>
-                </div>
-                <div>
-                  <div className="font-bold text-lg">{(attendanceRecords.reduce((sum, a) => sum + (a.overtimeMinutes || 0), 0) / 60).toFixed(1)}</div>
-                  <div className="text-gray-600">Total OT Hours</div>
-                </div>
-                <div>
-                  <div className="font-bold text-lg">{attendanceRecords.filter(a => a.attendanceStatus === 'alpha').length}</div>
-                  <div className="text-gray-600">Absent Days</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 text-center">
-            <p className="text-sm">Generated on {new Date().toLocaleDateString('id-ID')}</p>
-          </div>
-        </div>
-      </div>
     </Card>
   );
 }
