@@ -25,6 +25,11 @@ const storeSchema = z.object({
   phone: z.string().min(1, "Phone number is required"),
   manager: z.string().optional(),
   description: z.string().optional(),
+  entryTimeStart: z.string().default("07:00"),
+  entryTimeEnd: z.string().default("09:00"),
+  exitTimeStart: z.string().default("17:00"),
+  exitTimeEnd: z.string().default("19:00"),
+  timezone: z.string().default("Asia/Jakarta"),
 });
 
 type StoreData = z.infer<typeof storeSchema>;
@@ -36,6 +41,11 @@ interface StoreInfo {
   phone: string;
   manager?: string;
   description?: string;
+  entryTimeStart?: string;
+  entryTimeEnd?: string;
+  exitTimeStart?: string;
+  exitTimeEnd?: string;
+  timezone?: string;
   employeeCount: number;
   status: "active" | "inactive";
   createdAt: string;
@@ -62,6 +72,12 @@ export default function StoreManagementContent() {
   // Fetch stores
   const { data: stores = [], refetch: refetchStores, isLoading: storesLoading, error: storesError } = useQuery<StoreInfo[]>({
     queryKey: ["/api/stores"],
+    enabled: user?.role === "manager",
+  });
+
+  // Fetch users to show available managers
+  const { data: users = [] } = useQuery<any[]>({
+    queryKey: ["/api/users"],
     enabled: user?.role === "manager",
   });
 
@@ -126,6 +142,11 @@ export default function StoreManagementContent() {
       phone: "",
       manager: "",
       description: "",
+      entryTimeStart: "07:00",
+      entryTimeEnd: "09:00",
+      exitTimeStart: "17:00",
+      exitTimeEnd: "19:00",
+      timezone: "Asia/Jakarta",
     },
   });
 
@@ -137,6 +158,11 @@ export default function StoreManagementContent() {
       phone: "",
       manager: "",
       description: "",
+      entryTimeStart: "07:00",
+      entryTimeEnd: "09:00",
+      exitTimeStart: "17:00",
+      exitTimeEnd: "19:00",
+      timezone: "Asia/Jakarta",
     },
   });
 
@@ -158,6 +184,11 @@ export default function StoreManagementContent() {
       phone: store.phone,
       manager: store.manager || "",
       description: store.description || "",
+      entryTimeStart: store.entryTimeStart || "07:00",
+      entryTimeEnd: store.entryTimeEnd || "09:00", 
+      exitTimeStart: store.exitTimeStart || "17:00",
+      exitTimeEnd: store.exitTimeEnd || "19:00",
+      timezone: store.timezone || "Asia/Jakarta",
     });
     setEditDialogOpen(true);
   };
@@ -351,13 +382,24 @@ export default function StoreManagementContent() {
                       name="manager"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Manager Name</FormLabel>
+                          <FormLabel>Manager</FormLabel>
                           <FormControl>
-                            <Input 
-                              placeholder="Enter manager name" 
-                              data-testid="input-store-manager"
-                              {...field} 
-                            />
+                            <Select value={field.value || ""} onValueChange={field.onChange}>
+                              <SelectTrigger data-testid="select-store-manager">
+                                <SelectValue placeholder="Select a manager" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="no-manager">No Manager</SelectItem>
+                                {users
+                                  .filter(user => user.role === 'manager')
+                                  .map((manager) => (
+                                    <SelectItem key={manager.id} value={manager.name}>
+                                      {manager.name}
+                                    </SelectItem>
+                                  ))
+                                }
+                              </SelectContent>
+                            </Select>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -391,6 +433,111 @@ export default function StoreManagementContent() {
                         <FormLabel>Description</FormLabel>
                         <FormControl>
                           <Textarea placeholder="Enter store description" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Entry/Exit Time Configuration */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-gray-700">Entry Time Settings</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <FormField
+                          control={createForm.control}
+                          name="entryTimeStart"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Start Time</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="time" 
+                                  data-testid="input-entry-time-start"
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={createForm.control}
+                          name="entryTimeEnd"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">End Time</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="time" 
+                                  data-testid="input-entry-time-end"
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-gray-700">Exit Time Settings</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <FormField
+                          control={createForm.control}
+                          name="exitTimeStart"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Start Time</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="time" 
+                                  data-testid="input-exit-time-start"
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={createForm.control}
+                          name="exitTimeEnd"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">End Time</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="time" 
+                                  data-testid="input-exit-time-end"
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <FormField
+                    control={createForm.control}
+                    name="timezone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Timezone</FormLabel>
+                        <FormControl>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger data-testid="select-timezone">
+                              <SelectValue placeholder="Select timezone" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Asia/Jakarta">Asia/Jakarta (WIB)</SelectItem>
+                              <SelectItem value="Asia/Makassar">Asia/Makassar (WITA)</SelectItem>
+                              <SelectItem value="Asia/Jayapura">Asia/Jayapura (WIT)</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -568,13 +715,24 @@ export default function StoreManagementContent() {
                     name="manager"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Manager Name</FormLabel>
+                        <FormLabel>Manager</FormLabel>
                         <FormControl>
-                          <Input 
-                            placeholder="Enter manager name" 
-                            data-testid="input-edit-store-manager"
-                            {...field} 
-                          />
+                          <Select value={field.value || ""} onValueChange={field.onChange}>
+                            <SelectTrigger data-testid="select-edit-store-manager">
+                              <SelectValue placeholder="Select a manager" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="no-manager">No Manager</SelectItem>
+                              {users
+                                .filter(user => user.role === 'manager')
+                                .map((manager) => (
+                                  <SelectItem key={manager.id} value={manager.name}>
+                                    {manager.name}
+                                  </SelectItem>
+                                ))
+                              }
+                            </SelectContent>
+                          </Select>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -612,6 +770,111 @@ export default function StoreManagementContent() {
                           data-testid="input-edit-store-description"
                           {...field} 
                         />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Entry/Exit Time Configuration */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="space-y-4">
+                    <Label className="text-sm font-medium text-gray-700">Entry Time Settings</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <FormField
+                        control={editForm.control}
+                        name="entryTimeStart"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Start Time</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="time" 
+                                data-testid="input-edit-entry-time-start"
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={editForm.control}
+                        name="entryTimeEnd"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">End Time</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="time" 
+                                data-testid="input-edit-entry-time-end"
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <Label className="text-sm font-medium text-gray-700">Exit Time Settings</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <FormField
+                        control={editForm.control}
+                        name="exitTimeStart"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Start Time</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="time" 
+                                data-testid="input-edit-exit-time-start"
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={editForm.control}
+                        name="exitTimeEnd"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">End Time</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="time" 
+                                data-testid="input-edit-exit-time-end"
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <FormField
+                  control={editForm.control}
+                  name="timezone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Timezone</FormLabel>
+                      <FormControl>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger data-testid="select-edit-timezone">
+                            <SelectValue placeholder="Select timezone" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Asia/Jakarta">Asia/Jakarta (WIB)</SelectItem>
+                            <SelectItem value="Asia/Makassar">Asia/Makassar (WITA)</SelectItem>
+                            <SelectItem value="Asia/Jayapura">Asia/Jayapura (WIT)</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

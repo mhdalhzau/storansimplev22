@@ -41,6 +41,12 @@ export const stores = pgTable("stores", {
   manager: text("manager"),
   description: text("description"),
   status: text("status").default("active"), // 'active', 'inactive'
+  // Entry/Exit time settings
+  entryTimeStart: text("entry_time_start").default("07:00"), // Start of allowed entry time
+  entryTimeEnd: text("entry_time_end").default("09:00"), // End of allowed entry time
+  exitTimeStart: text("exit_time_start").default("17:00"), // Start of allowed exit time  
+  exitTimeEnd: text("exit_time_end").default("19:00"), // End of allowed exit time
+  timezone: text("timezone").default("Asia/Jakarta"), // Store timezone
   createdAt: timestamp("created_at").defaultNow(),
 });
 

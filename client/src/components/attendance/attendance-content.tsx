@@ -68,10 +68,10 @@ export default function AttendanceContent() {
             notes: record.notes,
           });
         } else {
-          // Create new attendance record
+          // Create new attendance record  
           return apiRequest("POST", "/api/attendance", {
             userId: currentEmp?.id,
-            storeId: 1, // Default store, should be dynamic
+            storeId: currentEmp?.stores?.[0]?.id ?? currentEmp?.storeId ?? user?.storeId ?? 1, // Use selected employee's store ID or fallback
             date: record.date,
             checkIn: record.checkIn,
             checkOut: record.checkOut,

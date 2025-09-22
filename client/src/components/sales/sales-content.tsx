@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ import { z } from "zod";
 function getUserNameFromId(userId: string | null, allUsers: any[] = []): string {
   if (!userId) return 'Staff Tidak Diketahui';
   const user = allUsers.find(u => u.id === userId);
-  return user?.name || `Staff ${userId.slice(0, 8)}`;
+  return user?.name || 'Staff Tidak Diketahui';
 }
 
 // Text Import Modal Component
@@ -836,6 +836,22 @@ export default function SalesContent() {
   // Get users data to show staff names
   const { data: allUsers } = useQuery<any[]>({ queryKey: ['/api/users'] });
 
+  // Fetch stores to get actual store names
+  const { data: stores = [] } = useQuery({
+    queryKey: ["/api/stores"],
+    enabled: user?.role === "manager",
+  });
+
+  // Set default tab to first available store when stores are loaded
+  useEffect(() => {
+    if (stores.length > 0) {
+      const firstStoreTab = `store-${stores[0].id}`;
+      if (activeTab === "store-1" || !stores.find(s => `store-${s.id}` === activeTab)) {
+        setActiveTab(firstStoreTab);
+      }
+    }
+  }, [stores]);
+
   // Filter sales data by store and date range
   // Note: Data is already filtered by store via query key, but we add client-side filtering as fallback
   const filteredSalesRecords = salesRecords.filter(record => {
@@ -883,15 +899,37 @@ export default function SalesContent() {
         <CardContent>
           {/* Store Filter Tabs */}
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="store-1" data-testid="tab-sales-store-1">
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Main Store (ID: 1)
-              </TabsTrigger>
-              <TabsTrigger value="store-2" data-testid="tab-sales-store-2">
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Branch Store (ID: 2)
-              </TabsTrigger>
+            <TabsList className={`grid w-full ${
+              stores.length > 0 
+                ? stores.length === 1 ? 'grid-cols-1' 
+                  : stores.length === 2 ? 'grid-cols-2'
+                  : stores.length === 3 ? 'grid-cols-3'
+                  : 'grid-cols-4'
+                : 'grid-cols-2'
+            } mb-6`}>
+              {stores.length > 0 ? (
+                stores.map((store) => (
+                  <TabsTrigger 
+                    key={store.id} 
+                    value={`store-${store.id}`} 
+                    data-testid={`tab-sales-store-${store.id}`}
+                  >
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    {store.name}
+                  </TabsTrigger>
+                ))
+              ) : (
+                <>
+                  <TabsTrigger value="store-1" data-testid="tab-sales-store-1">
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Store 1
+                  </TabsTrigger>
+                  <TabsTrigger value="store-2" data-testid="tab-sales-store-2">
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Store 2
+                  </TabsTrigger>
+                </>
+              )}
             </TabsList>
 
             {/* Date Range Filter */}
@@ -934,7 +972,7 @@ export default function SalesContent() {
               {/* Store-specific Import Button */}
               <TextImportModal 
                 storeId={currentStoreId} 
-                storeName={activeTab === "store-1" ? "Main Store" : "Branch Store"} 
+                storeName={stores.find(s => `store-${s.id}` === activeTab)?.name || `Store ${activeTab.replace('store-', '')}`} 
               />
             </div>
 
@@ -998,7 +1036,7 @@ export default function SalesContent() {
                 records={filteredSalesRecords} 
                 isLoading={isLoading}
                 allUsers={allUsers}
-                storeLabel="Main Store (ID: 1)"
+                storeLabel={stores[0]?.name || "Store 1"}
               />
             </TabsContent>
             
@@ -1007,7 +1045,7 @@ export default function SalesContent() {
                 records={filteredSalesRecords} 
                 isLoading={isLoading}
                 allUsers={allUsers}
-                storeLabel="Branch Store (ID: 2)"
+                storeLabel={stores[1]?.name || "Store 2"}
               />
             </TabsContent>
           </Tabs>

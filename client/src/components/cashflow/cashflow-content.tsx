@@ -153,6 +153,11 @@ export default function CashflowContent() {
   const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
   const [customerSearchTerm, setCustomerSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("store-1");
+  
+  // Fetch stores to get actual store names and data
+  const { data: stores = [] } = useQuery({
+    queryKey: ["/api/stores"],
+  });
 
   const form = useForm<CashflowData>({
     resolver: zodResolver(cashflowSchema),
@@ -174,10 +179,29 @@ export default function CashflowContent() {
     },
   });
 
+  // Set default tab to first available store when stores are loaded
+  useEffect(() => {
+    if (stores.length > 0) {
+      const firstStoreTab = `store-${stores[0].id}`;
+      if (activeTab === "store-1" || !stores.find(s => `store-${s.id}` === activeTab)) {
+        setActiveTab(firstStoreTab);
+        form.setValue("storeId", stores[0].id); // Update form storeId to match tab
+      }
+    }
+  }, [stores]);
+
+  // Keep form storeId in sync with activeTab
+  useEffect(() => {
+    const storeId = parseInt(activeTab.replace("store-", ""));
+    if (!isNaN(storeId)) {
+      form.setValue("storeId", storeId);
+    }
+  }, [activeTab, form]);
+
   // Update form storeId when tab changes
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    const storeId = value === "store-1" ? 1 : 2;
+    const storeId = parseInt(value.replace("store-", ""));
     form.setValue("storeId", storeId);
   };
 
@@ -312,7 +336,7 @@ export default function CashflowContent() {
   }, [watchCategory, form]);
 
   // Get current store ID from active tab
-  const currentStoreId = activeTab === "store-1" ? 1 : 2;
+  const currentStoreId = parseInt(activeTab.replace("store-", ""));
 
   const { data: cashflowRecords, isLoading } = useQuery<Cashflow[]>({
     queryKey: ["/api/cashflow", { storeId: currentStoreId }],
@@ -348,19 +372,11 @@ export default function CashflowContent() {
   const filteredCustomers =
     customerSearchTerm.length > 0 ? searchResults : customers;
 
-  // Query for all stores cashflow data to calculate grand totals
-  const { data: allCashflowStore1 = [] } = useQuery<Cashflow[]>({
-    queryKey: ["/api/cashflow", { storeId: 1 }],
+  // Query for all cashflow data to calculate grand totals
+  const { data: allCashflowData = [] } = useQuery<Cashflow[]>({
+    queryKey: ["/api/cashflow"],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/cashflow?storeId=1`);
-      return await res.json();
-    },
-  });
-
-  const { data: allCashflowStore2 = [] } = useQuery<Cashflow[]>({
-    queryKey: ["/api/cashflow", { storeId: 2 }],
-    queryFn: async () => {
-      const res = await apiRequest("GET", `/api/cashflow?storeId=2`);
+      const res = await apiRequest("GET", "/api/cashflow");
       return await res.json();
     },
   });
@@ -405,29 +421,35 @@ export default function CashflowContent() {
     };
   };
 
-  // Memoize calculations for performance
-  const store1Totals = useMemo(
-    () => calculateStoreTotals(allCashflowStore1),
-    [allCashflowStore1],
-  );
-  const store2Totals = useMemo(
-    () => calculateStoreTotals(allCashflowStore2),
-    [allCashflowStore2],
+  // Memoize calculations for performance by store
+  const storeTotals = useMemo(
+    () => {
+      const totals: { [storeId: number]: any } = {};
+      stores.forEach(store => {
+        const storeData = allCashflowData.filter(record => record.storeId === store.id);
+        totals[store.id] = calculateStoreTotals(storeData);
+      });
+      return totals;
+    },
+    [allCashflowData, stores],
   );
 
   const grandTotals = useMemo(
-    () => ({
-      totalIncome: store1Totals.totalIncome + store2Totals.totalIncome,
-      totalExpense: store1Totals.totalExpense + store2Totals.totalExpense,
-      totalInvestment:
-        store1Totals.totalInvestment + store2Totals.totalInvestment,
-      netFlow:
-        store1Totals.totalIncome +
-        store2Totals.totalIncome -
-        (store1Totals.totalExpense + store2Totals.totalExpense) -
-        (store1Totals.totalInvestment + store2Totals.totalInvestment),
-    }),
-    [store1Totals, store2Totals],
+    () => {
+      let totalIncome = 0, totalExpense = 0, totalInvestment = 0;
+      Object.values(storeTotals).forEach((storeTotal: any) => {
+        totalIncome += storeTotal.totalIncome;
+        totalExpense += storeTotal.totalExpense;
+        totalInvestment += storeTotal.totalInvestment;
+      });
+      return {
+        totalIncome,
+        totalExpense,
+        totalInvestment,
+        netFlow: totalIncome - totalExpense - totalInvestment,
+      };
+    },
+    [storeTotals],
   );
 
   // Customer creation form
@@ -509,15 +531,37 @@ export default function CashflowContent() {
         onValueChange={handleTabChange}
         className="w-full"
       >
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="store-1" data-testid="tab-cashflow-store-1">
-            <DollarSign className="h-4 w-4 mr-2" />
-            Main Store (ID: 1)
-          </TabsTrigger>
-          <TabsTrigger value="store-2" data-testid="tab-cashflow-store-2">
-            <DollarSign className="h-4 w-4 mr-2" />
-            Branch Store (ID: 2)
-          </TabsTrigger>
+        <TabsList className={`grid w-full ${
+          stores.length > 0 
+            ? stores.length === 1 ? 'grid-cols-1' 
+              : stores.length === 2 ? 'grid-cols-2'
+              : stores.length === 3 ? 'grid-cols-3'
+              : 'grid-cols-4'
+            : 'grid-cols-2'
+        }`}>
+          {stores.length > 0 ? (
+            stores.map((store) => (
+              <TabsTrigger 
+                key={store.id} 
+                value={`store-${store.id}`} 
+                data-testid={`tab-cashflow-store-${store.id}`}
+              >
+                <DollarSign className="h-4 w-4 mr-2" />
+                {store.name}
+              </TabsTrigger>
+            ))
+          ) : (
+            <>
+              <TabsTrigger value="store-1" data-testid="tab-cashflow-store-1">
+                <DollarSign className="h-4 w-4 mr-2" />
+                Store 1
+              </TabsTrigger>
+              <TabsTrigger value="store-2" data-testid="tab-cashflow-store-2">
+                <DollarSign className="h-4 w-4 mr-2" />
+                Store 2
+              </TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         {/* Financial Summary Overview */}
@@ -616,14 +660,16 @@ export default function CashflowContent() {
 
         </div>
 
-        {/* Main Store Cashflow */}
-        <TabsContent value="store-1" className="space-y-4">
+        {/* Dynamic Store Cashflow Content */}
+        {stores.length > 0 ? (
+          stores.map((store, index) => (
+            <TabsContent key={store.id} value={`store-${store.id}`} className="space-y-4">
           {/* Store 1 Summary */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <DollarSign className="h-4 w-4" />
-                Main Store (ID: 1)
+                {store.name}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -635,7 +681,7 @@ export default function CashflowContent() {
                   className="font-bold text-green-600"
                   data-testid="text-store1-income"
                 >
-                  Rp {store1Totals.totalIncome.toLocaleString("id-ID")}
+                  Rp {(storeTotals[stores[0]?.id] || {totalIncome: 0}).totalIncome.toLocaleString("id-ID")}
                 </span>
               </div>
               <div className="flex justify-between items-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
@@ -646,7 +692,7 @@ export default function CashflowContent() {
                   className="font-bold text-red-600"
                   data-testid="text-store1-expense"
                 >
-                  Rp {store1Totals.totalExpense.toLocaleString("id-ID")}
+                  Rp {(storeTotals[stores[0]?.id] || {totalExpense: 0}).totalExpense.toLocaleString("id-ID")}
                 </span>
               </div>
               <div className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
@@ -657,19 +703,19 @@ export default function CashflowContent() {
                   className="font-bold text-blue-600"
                   data-testid="text-store1-investment"
                 >
-                  Rp {store1Totals.totalInvestment.toLocaleString("id-ID")}
+                  Rp {(storeTotals[stores[0]?.id] || {totalInvestment: 0}).totalInvestment.toLocaleString("id-ID")}
                 </span>
               </div>
               <div
                 className={`flex justify-between items-center p-2 rounded font-semibold ${
-                  store1Totals.netFlow >= 0
+                  (storeTotals[stores[0]?.id] || {netFlow: 0}).netFlow >= 0
                     ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600"
                     : "bg-orange-50 dark:bg-orange-900/20 text-orange-600"
                 }`}
               >
                 <span className="text-sm font-medium">Net Cashflow</span>
                 <span data-testid="text-store1-net">
-                  Rp {store1Totals.netFlow.toLocaleString("id-ID")}
+                  Rp {(storeTotals[stores[0]?.id] || {netFlow: 0}).netFlow.toLocaleString("id-ID")}
                 </span>
               </div>
             </CardContent>
@@ -1195,7 +1241,7 @@ export default function CashflowContent() {
                 ) : (
                   <div className="text-center text-muted-foreground py-8">
                     <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No cashflow records found for Main Store</p>
+                    <p>No cashflow records found for {store.name}</p>
                     <p className="text-sm">
                       Add your first entry using the form
                     </p>
@@ -1205,15 +1251,28 @@ export default function CashflowContent() {
             </Card>
           </div>
         </TabsContent>
-
-        {/* Branch Store Cashflow */}
-        <TabsContent value="store-2" className="space-y-4">
+        ))
+        ) : (
+          // Fallback for when stores haven't loaded yet
+          <>
+            <TabsContent value="store-1" className="space-y-4">
+              <div className="text-center py-8">Loading store data...</div>
+            </TabsContent>
+            <TabsContent value="store-2" className="space-y-4">
+              <div className="text-center py-8">Loading store data...</div>
+            </TabsContent>
+          </>
+        )}
+        
+        {/* Legacy second store content - will be replaced by dynamic content above */}
+        {stores.length > 1 && (
+        <TabsContent value={`store-${stores[1]?.id}`} className="space-y-4" style={{display: 'none'}}>
           {/* Store 2 Summary */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <DollarSign className="h-4 w-4" />
-                Branch Store (ID: 2)
+                {stores[1]?.name || 'Store 2'}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -1225,7 +1284,7 @@ export default function CashflowContent() {
                   className="font-bold text-green-600"
                   data-testid="text-store2-income"
                 >
-                  Rp {store2Totals.totalIncome.toLocaleString("id-ID")}
+                  Rp {(storeTotals[stores[1]?.id] || {totalIncome: 0}).totalIncome.toLocaleString("id-ID")}
                 </span>
               </div>
               <div className="flex justify-between items-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
@@ -1236,7 +1295,7 @@ export default function CashflowContent() {
                   className="font-bold text-red-600"
                   data-testid="text-store2-expense"
                 >
-                  Rp {store2Totals.totalExpense.toLocaleString("id-ID")}
+                  Rp {(storeTotals[stores[1]?.id] || {totalExpense: 0}).totalExpense.toLocaleString("id-ID")}
                 </span>
               </div>
               <div className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
@@ -1247,26 +1306,26 @@ export default function CashflowContent() {
                   className="font-bold text-blue-600"
                   data-testid="text-store2-investment"
                 >
-                  Rp {store2Totals.totalInvestment.toLocaleString("id-ID")}
+                  Rp {(storeTotals[stores[1]?.id] || {totalInvestment: 0}).totalInvestment.toLocaleString("id-ID")}
                 </span>
               </div>
               <div
                 className={`flex justify-between items-center p-2 rounded font-semibold ${
-                  store2Totals.netFlow >= 0
+                  (storeTotals[stores[1]?.id] || {netFlow: 0}).netFlow >= 0
                     ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600"
                     : "bg-orange-50 dark:bg-orange-900/20 text-orange-600"
                 }`}
               >
                 <span className="text-sm font-medium">Net Cashflow</span>
                 <span data-testid="text-store2-net">
-                  Rp {store2Totals.netFlow.toLocaleString("id-ID")}
+                  Rp {(storeTotals[stores[1]?.id] || {netFlow: 0}).netFlow.toLocaleString("id-ID")}
                 </span>
               </div>
             </CardContent>
           </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Add Cashflow Entry - exact same as Main Store */}
+            {/* Add Cashflow Entry for {stores[1]?.name || 'Store 2'} */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1706,7 +1765,7 @@ export default function CashflowContent() {
               </CardContent>
             </Card>
 
-            {/* Cashflow Records - Branch Store filtered */}
+            {/* Cashflow Records for {stores[1]?.name || 'Store 2'} */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1787,7 +1846,7 @@ export default function CashflowContent() {
                 ) : (
                   <div className="text-center text-muted-foreground py-8">
                     <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No cashflow records found for Branch Store</p>
+                    <p>No cashflow records found for {stores[1]?.name || 'Store 2'}</p>
                     <p className="text-sm">
                       Add your first entry using the form
                     </p>
@@ -1797,6 +1856,7 @@ export default function CashflowContent() {
             </Card>
           </div>
         </TabsContent>
+        )}
       </Tabs>
 
       {/* Detail Modal for viewing cashflow entries */}

@@ -207,11 +207,8 @@ export default function UserManagementContent() {
   };
 
   const getStoreName = (storeId: number) => {
-    switch (storeId) {
-      case 1: return "Main Store";
-      case 2: return "Branch Store";
-      default: return "Unknown Store";
-    }
+    const store = stores.find(s => s.id === storeId);
+    return store ? store.name : "Unknown Store";
   };
 
   const getRoleBadgeColor = (role: string) => {

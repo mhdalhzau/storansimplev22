@@ -1,5 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
 import { 
   Building, 
   BarChart3, 
@@ -89,6 +90,12 @@ const menuItems: MenuItem[] = [
 export default function Sidebar({ activeMenu, onMenuChange }: SidebarProps) {
   const { user, logoutMutation } = useAuth();
 
+  // Fetch stores to get actual store names
+  const { data: stores = [] } = useQuery({
+    queryKey: ["/api/stores"],
+    enabled: !!user && user.role === "manager",
+  });
+
   if (!user) return null;
 
   const filteredMenuItems = menuItems.filter(item => 
@@ -96,13 +103,24 @@ export default function Sidebar({ activeMenu, onMenuChange }: SidebarProps) {
   );
 
   const getStoreName = () => {
+    if (user.stores && user.stores.length > 0) {
+      // If user has multiple stores, show the first one or a combined name
+      return user.stores.length === 1 
+        ? user.stores[0].name 
+        : `${user.stores[0].name} +${user.stores.length - 1}`;
+    }
+    
+    // For managers, try to get store name from stores query
+    if (user.role === "manager" && stores.length > 0) {
+      const userStore = stores.find(store => store.id === user.storeId);
+      if (userStore) return userStore.name;
+    }
+    
+    // Fallback to ID-based mapping for backward compatibility
     switch (user.storeId) {
-      case 1:
-        return "Main Store";
-      case 2:
-        return "Branch Store";
-      default:
-        return "Store";
+      case 1: return "Store 1";
+      case 2: return "Store 2";
+      default: return "Store";
     }
   };
 

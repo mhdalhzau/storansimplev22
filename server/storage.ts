@@ -603,6 +603,11 @@ export class MemStorage implements IStorage {
       manager: insertStore.manager ?? null,
       description: insertStore.description ?? null,
       status: insertStore.status ?? "active",
+      entryTimeStart: insertStore.entryTimeStart ?? "07:00",
+      entryTimeEnd: insertStore.entryTimeEnd ?? "09:00",
+      exitTimeStart: insertStore.exitTimeStart ?? "17:00",
+      exitTimeEnd: insertStore.exitTimeEnd ?? "19:00",
+      timezone: insertStore.timezone ?? "Asia/Jakarta",
       createdAt: new Date() 
     };
     this.stores.set(store.id, store);
