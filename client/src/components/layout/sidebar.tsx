@@ -80,12 +80,6 @@ const menuItems: MenuItem[] = [
     allowedRoles: ["staff", "manager", "administrasi"],
   },
   {
-    id: "overtime",
-    label: "Overtime",
-    icon: <Timer className="w-5 h-5" />,
-    allowedRoles: ["manager", "administrasi"],
-  },
-  {
     id: "settings",
     label: "Settings",
     icon: <Settings className="w-5 h-5" />,
