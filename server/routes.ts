@@ -2483,6 +2483,60 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Store Wallet Balance API endpoint for dashboard
+  app.get("/api/dashboard/store-wallets", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      // Get accessible store IDs for this user
+      const accessibleStoreIds = await getAccessibleStoreIds(req.user);
+      
+      const storeWallets = [];
+      
+      for (const storeId of accessibleStoreIds) {
+        // Get store information
+        const store = await storage.getStore(storeId);
+        if (!store) continue;
+        
+        // Get wallets for this store
+        const wallets = await storage.getWalletsByStore(storeId);
+        
+        // Calculate total balance for this store
+        let totalBalance = 0;
+        for (const wallet of wallets) {
+          totalBalance += parseFloat(wallet.balance || "0");
+        }
+        
+        // Format currency in Rupiah
+        const formatRupiah = (amount: number) => {
+          return new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+          }).format(amount);
+        };
+        
+        storeWallets.push({
+          storeId: store.id,
+          storeName: store.name,
+          totalBalance: formatRupiah(totalBalance),
+          walletCount: wallets.length,
+          wallets: wallets.map(w => ({
+            id: w.id,
+            name: w.name,
+            type: w.type,
+            balance: formatRupiah(parseFloat(w.balance || "0"))
+          }))
+        });
+      }
+      
+      res.json(storeWallets);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // User Management routes (Manager only)
   app.get("/api/users", async (req, res) => {
     try {

@@ -533,17 +533,7 @@ export default function PayrollContent() {
 
                   return (
                     <div style={{ marginBottom: "10px" }}>
-                      <h3
-                        style={{
-                          fontSize: "10px",
-                          fontWeight: "bold",
-                          marginBottom: "6px",
-                          borderBottom: "1px solid #333",
-                          paddingBottom: "2px",
-                        }}
-                      >
-                         SLIP GAJI KARYAWAN
-                      </h3>
+                     
                       <table
                         style={{
                           width: "100%",
