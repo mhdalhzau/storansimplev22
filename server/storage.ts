@@ -987,6 +987,12 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getPayrollByUserStoreMonth(userId: string, storeId: number, month: string): Promise<Payroll | undefined> {
+    return Array.from(this.payrollRecords.values()).find(
+      (record) => record.userId === userId && record.storeId === storeId && record.month === month
+    );
+  }
+
   async getAllPayroll(): Promise<Payroll[]> {
     return Array.from(this.payrollRecords.values());
   }
@@ -1013,6 +1019,62 @@ export class MemStorage implements IStorage {
         status,
         paidAt: status === 'paid' ? new Date() : record.paidAt
       };
+      this.payrollRecords.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  async updatePayrollBonusDeduction(id: string, updates: { bonuses?: string; deductions?: string; totalAmount?: string }): Promise<Payroll | undefined> {
+    const record = this.payrollRecords.get(id);
+    if (record) {
+      const updated = { 
+        ...record, 
+        bonuses: updates.bonuses !== undefined ? updates.bonuses : record.bonuses,
+        deductions: updates.deductions !== undefined ? updates.deductions : record.deductions,
+        totalAmount: updates.totalAmount !== undefined ? updates.totalAmount : record.totalAmount,
+      };
+      this.payrollRecords.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  async updatePayrollCalculation(id: string, updates: { baseSalary: string; overtimePay: string }): Promise<Payroll | undefined> {
+    const record = this.payrollRecords.get(id);
+    if (record) {
+      // Calculate existing bonus and deduction totals
+      let bonusTotal = 0;
+      let deductionTotal = 0;
+      
+      if (record.bonuses) {
+        try {
+          const bonuses = JSON.parse(record.bonuses);
+          bonusTotal = bonuses.reduce((sum: number, bonus: any) => sum + (bonus.amount || 0), 0);
+        } catch (e) {
+          console.warn("Failed to parse bonuses during update:", e);
+        }
+      }
+      
+      if (record.deductions) {
+        try {
+          const deductions = JSON.parse(record.deductions);
+          deductionTotal = deductions.reduce((sum: number, deduction: any) => sum + (deduction.amount || 0), 0);
+        } catch (e) {
+          console.warn("Failed to parse deductions during update:", e);
+        }
+      }
+
+      // Calculate new total amount
+      const newTotalAmount = parseFloat(updates.baseSalary) + parseFloat(updates.overtimePay) + bonusTotal - deductionTotal;
+      
+      const updated = { 
+        ...record,
+        baseSalary: updates.baseSalary,
+        overtimePay: updates.overtimePay,
+        totalAmount: newTotalAmount.toFixed(2),
+      };
+      
       this.payrollRecords.set(id, updated);
       return updated;
     }

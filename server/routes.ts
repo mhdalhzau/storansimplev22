@@ -1525,14 +1525,26 @@ export function registerRoutes(app: Express): Server {
           const overtimePay = totalOvertimeHours * overtimeRate;
           const totalAmount = basePay + overtimePay;
           
-          payrollPromises.push(storage.createPayroll({
-            userId: user.id,
-            storeId: storeId,
-            month: currentMonth,
-            baseSalary: basePay.toFixed(2),
-            overtimePay: overtimePay.toFixed(2),
-            totalAmount: totalAmount.toFixed(2),
-          }));
+          // Check if payroll already exists for this user, store, and month
+          const existingPayroll = await storage.getPayrollByUserStoreMonth(user.id, storeId, currentMonth);
+          
+          if (existingPayroll) {
+            // Update existing payroll record with new calculations
+            payrollPromises.push(storage.updatePayrollCalculation(existingPayroll.id, {
+              baseSalary: basePay.toFixed(2),
+              overtimePay: overtimePay.toFixed(2),
+            }));
+          } else {
+            // Create new payroll record
+            payrollPromises.push(storage.createPayroll({
+              userId: user.id,
+              storeId: storeId,
+              month: currentMonth,
+              baseSalary: basePay.toFixed(2),
+              overtimePay: overtimePay.toFixed(2),
+              totalAmount: totalAmount.toFixed(2),
+            }));
+          }
         }
       }
       
@@ -1611,6 +1623,55 @@ export function registerRoutes(app: Express): Server {
       }
       
       const payroll = await storage.updatePayrollStatus(req.params.id, 'paid');
+      if (!payroll) return res.status(404).json({ message: "Payroll not found" });
+      
+      res.json(payroll);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Update payroll bonuses/deductions
+  app.patch("/api/payroll/:id", async (req, res) => {
+    try {
+      if (!req.user || !['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      // Validate the request body
+      const { updatePayrollBonusDeductionSchema } = await import("@shared/schema");
+      const validatedData = updatePayrollBonusDeductionSchema.parse(req.body);
+      
+      // Get the payroll record to verify access
+      const existingPayroll = await storage.getPayroll(req.params.id);
+      if (!existingPayroll) {
+        return res.status(404).json({ message: "Payroll not found" });
+      }
+      
+      // For non-admins, verify they have access to the user's stores
+      if (req.user.role !== 'administrasi') {
+        const payrollUser = await storage.getUser(existingPayroll.userId);
+        if (!payrollUser) {
+          return res.status(404).json({ message: "Payroll user not found" });
+        }
+        
+        const payrollUserStores = await storage.getUserStores(payrollUser.id);
+        const currentUserStores = await storage.getUserStores(req.user.id);
+        
+        const hasSharedStore = payrollUserStores.some(ps => 
+          currentUserStores.some(cs => cs.id === ps.id)
+        );
+        
+        if (!hasSharedStore) {
+          return res.status(403).json({ message: "You don't have access to update this payroll" });
+        }
+      }
+
+      const payroll = await storage.updatePayrollBonusDeduction(req.params.id, {
+        bonuses: validatedData.bonuses,
+        deductions: validatedData.deductions,
+      });
+      
       if (!payroll) return res.status(404).json({ message: "Payroll not found" });
       
       res.json(payroll);

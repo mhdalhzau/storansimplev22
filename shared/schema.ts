@@ -132,6 +132,8 @@ export const payroll = pgTable("payroll", {
   month: text("month").notNull(), // 'YYYY-MM'
   baseSalary: decimal("base_salary", { precision: 10, scale: 2 }).notNull(),
   overtimePay: decimal("overtime_pay", { precision: 10, scale: 2 }).default("0"),
+  bonuses: text("bonuses"), // JSON string for flexible bonus entries [{name: string, amount: number}]
+  deductions: text("deductions"), // JSON string for flexible deduction entries [{name: string, amount: number}]
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   status: text("status").default("pending"), // 'pending', 'paid'
   paidAt: timestamp("paid_at"),
@@ -305,6 +307,33 @@ export const insertPayrollSchema = createInsertSchema(payroll).omit({
   createdAt: true,
   status: true,
   paidAt: true,
+});
+
+// Bonus/Deduction validation schemas
+export const bonusDeductionItemSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
+});
+
+export const updatePayrollBonusDeductionSchema = z.object({
+  bonuses: z.string().optional().refine((val) => {
+    if (!val) return true;
+    try {
+      const parsed = JSON.parse(val);
+      return z.array(bonusDeductionItemSchema).parse(parsed);
+    } catch {
+      return false;
+    }
+  }, "Invalid bonuses format"),
+  deductions: z.string().optional().refine((val) => {
+    if (!val) return true;
+    try {
+      const parsed = JSON.parse(val);
+      return z.array(bonusDeductionItemSchema).parse(parsed);
+    } catch {
+      return false;
+    }
+  }, "Invalid deductions format"),
 });
 
 export const insertProposalSchema = createInsertSchema(proposals).omit({
