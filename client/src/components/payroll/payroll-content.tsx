@@ -122,6 +122,16 @@ export default function PayrollContent() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/payroll"] });
       setBonusDialogOpen(false);
+      
+      // Update selected payroll to trigger immediate UI refresh
+      setTimeout(() => {
+        if (selectedPayroll) {
+          const updatedRecord = processedRecords.find(record => record.id === selectedPayroll.id);
+          if (updatedRecord) {
+            setSelectedPayroll(updatedRecord);
+          }
+        }
+      }, 100);
     },
   });
 
@@ -179,6 +189,14 @@ export default function PayrollContent() {
       deductionList,
     };
   }) || [];
+
+  // Update selectedPayroll when processedRecords changes
+  if (selectedPayroll && processedRecords.length > 0) {
+    const updatedSelected = processedRecords.find(record => record.id === selectedPayroll.id);
+    if (updatedSelected && JSON.stringify(updatedSelected) !== JSON.stringify(selectedPayroll)) {
+      setSelectedPayroll(updatedSelected);
+    }
+  }
 
   return (
     <Card>
