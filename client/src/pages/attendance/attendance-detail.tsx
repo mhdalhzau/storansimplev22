@@ -46,6 +46,7 @@ interface MonthlyAttendanceData {
 }
 
 const ATTENDANCE_STATUS_OPTIONS = [
+  { value: "belum_diatur", label: "Belum Diatur", color: "bg-gray-100 text-gray-600" },
   { value: "hadir", label: "Hadir", color: "bg-green-100 text-green-800" },
   { value: "cuti", label: "Cuti", color: "bg-blue-100 text-blue-800" },
   { value: "alpha", label: "Alpha", color: "bg-red-100 text-red-800" },
@@ -274,10 +275,11 @@ export default function AttendanceDetailPage() {
     const hadirCount = attendanceData.filter(r => r.attendanceStatus === 'hadir').length;
     const cutiCount = attendanceData.filter(r => r.attendanceStatus === 'cuti').length;
     const alphaCount = attendanceData.filter(r => r.attendanceStatus === 'alpha').length;
+    const belumDiaturCount = attendanceData.filter(r => r.attendanceStatus === 'belum_diatur' || !r.attendanceStatus).length;
     const totalLateness = attendanceData.reduce((sum, r) => sum + r.latenessMinutes, 0);
     const totalOvertime = attendanceData.reduce((sum, r) => sum + r.overtimeMinutes, 0);
     
-    return { hadirCount, cutiCount, alphaCount, totalLateness, totalOvertime };
+    return { hadirCount, cutiCount, alphaCount, belumDiaturCount, totalLateness, totalOvertime };
   };
 
   if (isLoading) {
@@ -412,7 +414,7 @@ export default function AttendanceDetailPage() {
       </Card>
 
       {/* Summary Statistics */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-4 mb-6">
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-green-600" data-testid="summary-hadir-count">{summary.hadirCount}</div>
@@ -429,6 +431,12 @@ export default function AttendanceDetailPage() {
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-red-600" data-testid="summary-alpha-count">{summary.alphaCount}</div>
             <div className="text-sm text-gray-600">Alpha</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-gray-600" data-testid="summary-belum-diatur-count">{summary.belumDiaturCount}</div>
+            <div className="text-sm text-gray-600">Belum Diatur</div>
           </CardContent>
         </Card>
         <Card>
@@ -480,8 +488,8 @@ export default function AttendanceDetailPage() {
                           value={record.attendanceStatus}
                           onValueChange={(value) => updateAttendanceRecord(index, 'attendanceStatus', value)}
                         >
-                          <SelectTrigger className="w-24" data-testid={`select-status-${record.date}`}>
-                            <SelectValue />
+                          <SelectTrigger className="w-32" data-testid={`select-status-${record.date}`}>
+                            <SelectValue placeholder="Pilih status" />
                           </SelectTrigger>
                           <SelectContent>
                             {ATTENDANCE_STATUS_OPTIONS.map(option => (

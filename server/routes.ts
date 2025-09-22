@@ -2823,6 +2823,9 @@ export function registerRoutes(app: Express): Server {
         endDate.toISOString()
       );
       
+      // Get employee stores to check sales data
+      const employeeStores = await storage.getUserStores(employeeId);
+      
       // Generate full month data
       const daysInMonth = endDate.getDate();
       const monthlyData = [];
@@ -2838,6 +2841,35 @@ export function registerRoutes(app: Express): Server {
           return recordDate === dateStr;
         });
         
+        // Check if sales data exists for this employee and date
+        let hasValidSalesData = false;
+        if (!existingRecord?.attendanceStatus || existingRecord.attendanceStatus === 'belum_diatur') {
+          // Only check sales data if status is not already set manually
+          for (const store of employeeStores) {
+            const submissionId = `${dateStr}-${employeeId}-${store.id}`;
+            const salesRecords = await storage.getSalesByStore(store.id, dateStr, dateStr);
+            const salesRecord = salesRecords.find((s: any) => 
+              s.submissionDate === submissionId || 
+              (s.userId === employeeId && new Date(s.date).toISOString().split('T')[0] === dateStr)
+            );
+            if (salesRecord) {
+              hasValidSalesData = true;
+              break;
+            }
+          }
+        }
+        
+        // Determine attendance status
+        let attendanceStatus = 'belum_diatur';
+        if (existingRecord?.attendanceStatus && existingRecord.attendanceStatus !== 'belum_diatur') {
+          // Use existing status if already set manually (and not default)
+          attendanceStatus = existingRecord.attendanceStatus;
+        } else if (hasValidSalesData) {
+          // Automatically set to 'hadir' if sales data exists
+          attendanceStatus = 'hadir';
+        }
+        // Otherwise keep as 'belum_diatur' (default)
+        
         monthlyData.push({
           date: dateStr,
           day: dayName,
@@ -2848,7 +2880,7 @@ export function registerRoutes(app: Express): Server {
           shift: existingRecord?.shift || '',
           latenessMinutes: existingRecord?.latenessMinutes || 0,
           overtimeMinutes: existingRecord?.overtimeMinutes || 0,
-          attendanceStatus: existingRecord?.attendanceStatus || 'hadir',
+          attendanceStatus: attendanceStatus,
           notes: existingRecord?.notes || ''
         });
       }
