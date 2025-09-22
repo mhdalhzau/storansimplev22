@@ -843,7 +843,7 @@ export function registerRoutes(app: Express): Server {
         const parsedData: any = {
           storeId: targetStoreId,
           userId: req.user.id,
-          date: new Date(),
+          date: new Date(), // Will be updated if date is found in text
           shift: null,
           checkIn: null,
           checkOut: null,
@@ -860,6 +860,68 @@ export function registerRoutes(app: Express): Server {
           transactions: 0,
           averageTicket: null
         };
+
+        // Parse date from text - try multiple formats
+        let dateFound = false;
+        for (const line of lines) {
+          if (dateFound) break; // Stop once we find a valid date
+          
+          const cleanLine = line.trim();
+          console.log(`Checking line for date: "${cleanLine}"`);
+          
+          // Format 1: "Sabtu, 20 September 2025" (with day name)
+          // Format 2: "20 September 2025" (without day name)
+          // Format 3: "Tanggal: 20 September 2025"
+          const datePatterns = [
+            /(?:.*?,\s*)?(\d{1,2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})/i,
+            /(?:Tanggal:?\s*)?(\d{1,2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})/i,
+            /(\d{1,2})[-\/\s](\d{1,2})[-\/\s](\d{4})/i // DD/MM/YYYY or DD-MM-YYYY format
+          ];
+
+          for (const pattern of datePatterns) {
+            const dateMatch = cleanLine.match(pattern);
+            if (dateMatch) {
+              try {
+                let day, month, year;
+                
+                if (pattern.source.includes('Januari|Februari')) {
+                  // Indonesian month name format
+                  day = parseInt(dateMatch[1]);
+                  const monthName = dateMatch[2];
+                  year = parseInt(dateMatch[3]);
+                  
+                  // Map Indonesian month names to numbers
+                  const monthMap = {
+                    'januari': 1, 'februari': 2, 'maret': 3, 'april': 4, 'mei': 5, 'juni': 6,
+                    'juli': 7, 'agustus': 8, 'september': 9, 'oktober': 10, 'november': 11, 'desember': 12
+                  };
+                  
+                  month = monthMap[monthName.toLowerCase()];
+                } else {
+                  // DD/MM/YYYY format
+                  day = parseInt(dateMatch[1]);
+                  month = parseInt(dateMatch[2]);
+                  year = parseInt(dateMatch[3]);
+                }
+                
+                if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 2020 && year <= 2030) {
+                  parsedData.date = new Date(year, month - 1, day); // month - 1 because Date() months are 0-based
+                  dateFound = true;
+                  console.log(`✓ Successfully parsed date from text: ${parsedData.date.toISOString().split('T')[0]} from line: "${cleanLine}"`);
+                  break; // Exit pattern loop once we find a valid date
+                } else {
+                  console.log(`Invalid date values - day: ${day}, month: ${month}, year: ${year}`);
+                }
+              } catch (dateError) {
+                console.log('Error parsing date:', dateError);
+              }
+            }
+          }
+        }
+        
+        if (!dateFound) {
+          console.log('⚠️  No valid date found in text, using current date as fallback');
+        }
 
         // Parse employee name and time
         for (const line of lines) {
@@ -1032,7 +1094,7 @@ export function registerRoutes(app: Express): Server {
       let employeeMatched = false;
       if (salesData.employeeName) {
         try {
-          const users = await storage.getUsers();
+          const users = await storage.getAllUsers();
           const matchingUser = users.find(user => 
             user.name.toLowerCase().trim() === salesData.employeeName.toLowerCase().trim()
           );
