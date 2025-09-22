@@ -835,6 +835,9 @@ export class MemStorage implements IStorage {
       await this.createQrisPiutangForManager(record);
     }
 
+    // Automatically create cashflow entries for sales data
+    await this.createCashflowFromSales(record);
+
     return record;
   }
 
@@ -912,6 +915,96 @@ export class MemStorage implements IStorage {
     
     this.cashflowRecords.set(id, record);
     return record;
+  }
+
+  // Helper method to create cashflow entries from sales data
+  private async createCashflowFromSales(salesRecord: Sales): Promise<void> {
+    const { storeId, totalCash, totalIncome, totalExpenses, date, submissionDate, userId, shift } = salesRecord;
+    
+    // Require either submissionDate or date for deterministic behavior
+    if (!submissionDate && !date) {
+      console.warn("Sales record missing both submissionDate and date, skipping cashflow creation");
+      return;
+    }
+
+    const salesDate = date || new Date();
+
+    // Create stable submission key for idempotency
+    let submissionKey: string;
+    if (submissionDate) {
+      submissionKey = submissionDate;
+    } else {
+      // Create deterministic key including shift to handle multiple shifts per day
+      const dateStr = salesDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const shiftStr = shift || 'na';
+      submissionKey = `${dateStr}-${userId}-${storeId}-${shiftStr}`;
+    }
+
+    // Helper function to check if cashflow entry already exists for this submission
+    const isDuplicateEntry = (category: string, type: string): boolean => {
+      const expectedDescription = this.generateCashflowDescription(category, type, submissionKey);
+      return Array.from(this.cashflowRecords.values()).some(
+        cashflow => cashflow.storeId === storeId && 
+                   cashflow.category === category &&
+                   cashflow.type === type &&
+                   cashflow.description === expectedDescription
+      );
+    };
+
+    // Create cashflow entry for cash payments specifically (if > 0)
+    // Only cash payments create immediate cashflow - QRIS is handled via piutang system
+    const cashAmount = parseFloat(totalCash?.toString() || "0");
+    if (cashAmount > 0 && !isDuplicateEntry("Income", "Sales")) {
+      const cashCashflow: InsertCashflow = {
+        storeId,
+        category: "Income",
+        type: "Sales",
+        amount: totalCash,
+        description: this.generateCashflowDescription("Income", "Sales", submissionKey),
+        date: salesDate,
+      };
+      await this.createCashflow(cashCashflow, "system");
+    }
+
+    // Create cashflow entry for additional income (if > 0)
+    const incomeAmount = parseFloat(totalIncome?.toString() || "0");
+    if (incomeAmount > 0 && !isDuplicateEntry("Income", "Other")) {
+      const incomeCashflow: InsertCashflow = {
+        storeId,
+        category: "Income",
+        type: "Other",
+        amount: totalIncome,
+        description: this.generateCashflowDescription("Income", "Other", submissionKey),
+        date: salesDate,
+      };
+      await this.createCashflow(incomeCashflow, "system");
+    }
+
+    // Create cashflow entry for expenses (if > 0)
+    const expenseAmount = parseFloat(totalExpenses?.toString() || "0");
+    if (expenseAmount > 0 && !isDuplicateEntry("Expense", "Other")) {
+      const expenseCashflow: InsertCashflow = {
+        storeId,
+        category: "Expense",
+        type: "Other",
+        amount: totalExpenses,
+        description: this.generateCashflowDescription("Expense", "Other", submissionKey),
+        date: salesDate,
+      };
+      await this.createCashflow(expenseCashflow, "system");
+    }
+  }
+
+  // Helper method to generate consistent cashflow descriptions
+  private generateCashflowDescription(category: string, type: string, submissionKey: string): string {
+    if (category === "Income" && type === "Sales") {
+      return `Penjualan Cash otomatis dari sales report [${submissionKey}]`;
+    } else if (category === "Income" && type === "Other") {
+      return `Pendapatan tambahan otomatis dari sales report [${submissionKey}]`;
+    } else if (category === "Expense" && type === "Other") {
+      return `Pengeluaran otomatis dari sales report [${submissionKey}]`;
+    }
+    return `Auto cashflow dari sales report [${submissionKey}]`;
   }
 
   // Payroll methods
