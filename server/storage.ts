@@ -99,6 +99,7 @@ export interface IStorage {
   getAllOvertime(): Promise<Overtime[]>;
   createOvertime(overtime: InsertOvertime): Promise<Overtime>;
   updateOvertimeStatus(id: string, status: string, approvedBy: string): Promise<Overtime | undefined>;
+  updateOvertimeHours(id: string, hours: string, reason: string): Promise<Overtime | undefined>;
   
   // Setoran methods
   getSetoran(id: string): Promise<Setoran | undefined>;
@@ -1033,6 +1034,20 @@ export class MemStorage implements IStorage {
         status,
         approvedBy,
         approvedAt: new Date()
+      };
+      this.overtimeRecords.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  async updateOvertimeHours(id: string, hours: string, reason: string): Promise<Overtime | undefined> {
+    const record = this.overtimeRecords.get(id);
+    if (record) {
+      const updated = { 
+        ...record, 
+        hours,
+        reason
       };
       this.overtimeRecords.set(id, updated);
       return updated;

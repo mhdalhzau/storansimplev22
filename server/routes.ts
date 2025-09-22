@@ -18,6 +18,7 @@ import {
   insertCustomerSchema,
   insertPiutangSchema
 } from "@shared/schema";
+import { calculateShiftOvertime, formatOvertimeDuration, detectShiftFromTime } from "@shared/overtime-utils";
 import { z } from "zod";
 
 // Helper functions for multi-store authorization
@@ -1699,13 +1700,90 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Overtime routes
-  app.get("/api/overtime", async (req, res) => {
+  app.post("/api/overtime", async (req, res) => {
     try {
-      if (!req.user || req.user.role !== 'administrasi') {
-        return res.status(403).json({ message: "Forbidden" });
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      let targetUserId = req.user.id;
+      let targetStoreId = req.body.storeId || await getUserFirstStoreId(req.user);
+      
+      // Verify store access for the current user
+      if (targetStoreId && !(await hasStoreAccess(req.user, targetStoreId))) {
+        return res.status(403).json({ message: "You don't have access to this store" });
       }
       
-      const overtime = await storage.getAllOvertime();
+      // Allow managers and admins to create overtime for other users
+      if (req.body.userId && ['manager', 'administrasi'].includes(req.user.role)) {
+        targetUserId = req.body.userId;
+        
+        // For non-admins, verify the target user shares at least one store
+        if (req.user.role !== 'administrasi') {
+          const targetUser = await storage.getUser(req.body.userId);
+          if (!targetUser) {
+            return res.status(404).json({ message: "Target user not found" });
+          }
+          
+          const targetUserStores = await storage.getUserStores(targetUser.id);
+          const currentUserStores = await storage.getUserStores(req.user.id);
+          
+          const hasSharedStore = targetUserStores.some(ts => 
+            currentUserStores.some(cs => cs.id === ts.id)
+          );
+          
+          if (!hasSharedStore) {
+            return res.status(403).json({ message: "Cannot create overtime for users outside your stores" });
+          }
+        }
+        
+        // Use the specified storeId or target user's first store
+        if (!targetStoreId) {
+          const targetUser = await storage.getUser(targetUserId);
+          targetStoreId = await getUserFirstStoreId(targetUser);
+        }
+        
+        // Ensure the target user is assigned to the target store
+        const targetUser = await storage.getUser(targetUserId);
+        if (targetUser && !(await hasStoreAccess(targetUser, targetStoreId))) {
+          return res.status(403).json({ message: "Cannot create overtime for user in a store they are not assigned to" });
+        }
+      }
+      
+      // Calculate hours from minutes if provided, ensuring proper 60-minute increments
+      let hours = req.body.hours;
+      if (req.body.minutes) {
+        hours = Math.round(req.body.minutes / 60 * 100) / 100; // Round to 2 decimal places for proper hourly calculation
+      }
+      
+      const data = insertOvertimeSchema.parse({
+        userId: targetUserId,
+        storeId: targetStoreId,
+        date: req.body.date,
+        hours: hours.toString(),
+        reason: req.body.reason
+      });
+      
+      const overtime = await storage.createOvertime(data);
+      res.json(overtime);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/overtime", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      let overtime;
+      if (req.user.role === 'administrasi') {
+        // Admins can see all overtime requests
+        overtime = await storage.getAllOvertime();
+      } else {
+        // Managers and staff can only see overtime for their accessible stores
+        const accessibleStoreIds = await getAccessibleStoreIds(req.user);
+        const allOvertime = await storage.getAllOvertime();
+        overtime = allOvertime.filter(ot => accessibleStoreIds.includes(ot.storeId));
+      }
+      
       res.json(overtime);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -1714,8 +1792,19 @@ export function registerRoutes(app: Express): Server {
 
   app.patch("/api/overtime/:id", async (req, res) => {
     try {
-      if (!req.user || req.user.role !== 'administrasi') {
+      if (!req.user || !['manager', 'administrasi'].includes(req.user.role)) {
         return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      // Get the overtime record first to check store access
+      const existingOvertime = await storage.getOvertime(req.params.id);
+      if (!existingOvertime) {
+        return res.status(404).json({ message: "Overtime not found" });
+      }
+      
+      // Verify store access
+      if (!(await hasStoreAccess(req.user, existingOvertime.storeId))) {
+        return res.status(403).json({ message: "You don't have access to manage overtime for this store" });
       }
       
       const { status } = req.body;
@@ -1810,8 +1899,92 @@ export function registerRoutes(app: Express): Server {
       
       const setoran = await storage.createSetoran(data);
       
+      // Calculate and create overtime request if overtime hours are detected
+      let overtimeData = null;
+      if (jam_masuk && jam_keluar) {
+        try {
+          // Detect shift based on check-in time
+          const shift = detectShiftFromTime(jam_masuk);
+          
+          // Calculate overtime from actual work hours
+          const overtimeCalc = calculateShiftOvertime(jam_masuk, jam_keluar, shift);
+          
+          // If overtime is detected (more than 0 hours), create overtime request
+          if (overtimeCalc.totalHours > 0) {
+            let overtimeUserId = req.user.id;
+            let overtimeStoreId = await getUserFirstStoreId(req.user);
+            
+            // If employee ID is specified and different from current user, use that for overtime
+            if (employeeId && employeeId !== req.user.id && ['manager', 'administrasi'].includes(req.user.role)) {
+              const targetUser = await storage.getUser(employeeId);
+              if (targetUser) {
+                overtimeUserId = employeeId;
+                overtimeStoreId = await getUserFirstStoreId(targetUser);
+              }
+            }
+            
+            // Ensure store ID is available
+            if (!overtimeStoreId) {
+              overtimeStoreId = 1; // Default store
+            }
+            
+            // Check for existing overtime request for same user/date/store to prevent duplicates
+            const today = new Date();
+            const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+            
+            const allOvertime = await storage.getAllOvertime();
+            const existingOvertime = allOvertime.find(ot => 
+              ot.userId === overtimeUserId && 
+              ot.storeId === overtimeStoreId &&
+              new Date(ot.date) >= todayStart && 
+              new Date(ot.date) < todayEnd &&
+              ot.reason.includes('Lembur otomatis dari setoran')
+            );
+            
+            if (existingOvertime) {
+              // Update existing overtime request instead of creating duplicate
+              const updatedOvertime = await storage.updateOvertimeHours(
+                existingOvertime.id, 
+                overtimeCalc.totalHours.toString(),
+                `Lembur otomatis dari setoran (diperbarui) - ${formatOvertimeDuration(overtimeCalc.totalMinutes)} (${jam_masuk} - ${jam_keluar})`
+              );
+              
+              overtimeData = {
+                overtime: updatedOvertime || existingOvertime,
+                calculation: overtimeCalc,
+                shift,
+                message: `Lembur terdeteksi: ${formatOvertimeDuration(overtimeCalc.totalMinutes)} - Permintaan lembur diperbarui`
+              };
+            } else {
+              // Create new overtime request
+              const overtimeRequest = insertOvertimeSchema.parse({
+                userId: overtimeUserId,
+                storeId: overtimeStoreId,
+                date: new Date(), // Use current date for setoran submission
+                hours: overtimeCalc.totalHours.toString(),
+                reason: `Lembur otomatis dari setoran - ${formatOvertimeDuration(overtimeCalc.totalMinutes)} (${jam_masuk} - ${jam_keluar})`
+              });
+              
+              const overtime = await storage.createOvertime(overtimeRequest);
+              overtimeData = {
+                overtime,
+                calculation: overtimeCalc,
+                shift,
+                message: `Lembur terdeteksi: ${formatOvertimeDuration(overtimeCalc.totalMinutes)} - Permintaan lembur otomatis dibuat`
+              };
+            }
+          }
+        } catch (overtimeError) {
+          console.warn('Failed to calculate/create overtime:', overtimeError);
+        }
+      }
+      
       // Create related records based on user permissions
-      const results: any = { setoran };
+      const results: any = { 
+        setoran,
+        overtime: overtimeData
+      };
       
       // 1. Create attendance with proper authorization checks
       if (employeeId && jam_masuk && jam_keluar) {
