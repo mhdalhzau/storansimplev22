@@ -159,7 +159,7 @@ export default function PayrollContent() {
   });
 
   const handlePrint = useReactToPrint({
-    contentRef: printRef,
+    content: () => printRef.current,
     documentTitle: selectedPayroll ? `Payroll-${selectedPayroll.month}-${selectedPayroll.user?.name}` : 'Payroll',
   });
 
@@ -344,58 +344,227 @@ export default function PayrollContent() {
               </div>
               <Button
                 onClick={() => {
-                  // Give a small delay for state to update before printing
-                  setTimeout(() => handlePrint(), 100);
+                  // Only print after attendance data is loaded
+                  if (allAttendanceRecords) {
+                    setTimeout(() => handlePrint(), 100);
+                  }
                 }}
+                disabled={!allAttendanceRecords}
                 data-testid={`button-print-detail-${selectedPayroll?.id}`}
               >
                 <Printer className="h-4 w-4 mr-2" />
-                Print Payroll
+                {!allAttendanceRecords ? 'Loading...' : 'Print Payroll'}
               </Button>
             </div>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh]">
             {/* Print Content - Hidden salary slip format */}
             <div ref={printRef} className="print-content hidden">
-              <div className="salary-slip" style={{
-                width: '210mm',
-                minHeight: '297mm',
-                margin: '0.5mm',
-                padding: '10mm',
-                fontFamily: 'Arial, sans-serif',
-                fontSize: '12px',
-                lineHeight: '1.4',
-                color: '#000',
-                backgroundColor: '#fff'
-              }}>
-                {/* Header */}
+              {/* PAGE 1: ATTENDANCE DETAILS */}
+              <div className="attendance-page page-break">
+                {/* Header Page 1 */}
+                <div style={{ textAlign: 'center', marginBottom: '12px', borderBottom: '2px solid #000', paddingBottom: '6px' }}>
+                  <h1 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 2px 0' }}>REKAP KEHADIRAN KARYAWAN</h1>
+                  <h2 style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 2px 0' }}>{selectedPayroll?.store?.name || 'NAMA TOKO'}</h2>
+                  <p style={{ fontSize: '10px', margin: '0' }}>Periode: {selectedPayroll?.month}</p>
+                </div>
+
+                {/* Employee Info Page 1 */}
+                <div style={{ marginBottom: '10px' }}>
+                  <table style={{ width: '100%', fontSize: '9px' }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ width: '100px', padding: '1px 0' }}><strong>Nama</strong></td>
+                        <td style={{ padding: '1px 0' }}>: {selectedPayroll?.user?.name || '-'}</td>
+                        <td style={{ width: '80px', padding: '1px 0' }}><strong>Toko</strong></td>
+                        <td style={{ padding: '1px 0' }}>: {selectedPayroll?.store?.name || '-'}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Monthly Attendance Calendar */}
+                {(() => {
+                  if (!selectedPayroll?.month) return null;
+                  
+                  const [year, month] = selectedPayroll.month.split('-').map(Number);
+                  const daysInMonth = new Date(year, month, 0).getDate();
+                  const monthlyDays = Array.from({ length: daysInMonth }, (_, i) => {
+                    const day = i + 1;
+                    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const attendance = attendanceRecords.find(record => {
+                      const recordDate = new Date(record.date || record.createdAt);
+                      return recordDate.toISOString().split('T')[0] === dateStr;
+                    });
+                    
+                    return {
+                      date: dateStr,
+                      day: day,
+                      dayName: new Date(dateStr).toLocaleDateString('id-ID', { weekday: 'short' }),
+                      attendance
+                    };
+                  });
+                  
+                  return (
+                    <div style={{ marginBottom: '10px' }}>
+                      <h3 style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '6px', borderBottom: '1px solid #333', paddingBottom: '2px' }}>DETAIL KEHADIRAN HARIAN</h3>
+                      <table style={{ width: '100%', fontSize: '8px', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ backgroundColor: '#f5f5f5' }}>
+                            <th style={{ border: '1px solid #ddd', padding: '2px', textAlign: 'center', width: '10%' }}>Tgl</th>
+                            <th style={{ border: '1px solid #ddd', padding: '2px', textAlign: 'center', width: '15%' }}>Hari</th>
+                            <th style={{ border: '1px solid #ddd', padding: '2px', textAlign: 'center', width: '25%' }}>Masuk</th>
+                            <th style={{ border: '1px solid #ddd', padding: '2px', textAlign: 'center', width: '25%' }}>Keluar</th>
+                            <th style={{ border: '1px solid #ddd', padding: '2px', textAlign: 'center', width: '25%' }}>Keterangan</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {monthlyDays.map(({ date, day, dayName, attendance }) => {
+                            const isWeekend = new Date(date).getDay() === 0 || new Date(date).getDay() === 6;
+                            const overtimeHours = attendance?.overtimeMinutes ? (attendance.overtimeMinutes / 60).toFixed(1) : '0';
+                            
+                            return (
+                              <tr key={date} style={{ backgroundColor: isWeekend ? '#f9f9f9' : 'white' }}>
+                                <td style={{ border: '1px solid #ddd', padding: '3px', textAlign: 'center', fontSize: '9px' }}>{day}</td>
+                                <td style={{ border: '1px solid #ddd', padding: '3px', textAlign: 'center', fontSize: '9px' }}>{dayName}</td>
+                                <td style={{ border: '1px solid #ddd', padding: '3px', textAlign: 'center', fontSize: '9px' }}>
+                                  {attendance?.checkIn || '-'}
+                                </td>
+                                <td style={{ border: '1px solid #ddd', padding: '3px', textAlign: 'center', fontSize: '9px' }}>
+                                  {attendance?.checkOut || '-'}
+                                </td>
+                                <td style={{ border: '1px solid #ddd', padding: '3px', textAlign: 'center', fontSize: '9px' }}>
+                                  {attendance?.notes || '-'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+
+                {/* Attendance Summary Stats */}
+                {(() => {
+                  const totalWorkDays = attendanceRecords?.filter(record => record.attendanceStatus === 'hadir').length || 0;
+                  const totalLateMinutes = attendanceRecords?.reduce((sum, record) => sum + (record.latenessMinutes || 0), 0) || 0;
+                  const totalOvertimeHours = attendanceRecords?.reduce((sum, record) => sum + ((record.overtimeMinutes || 0) / 60), 0) || 0;
+                  const totalLeave = attendanceRecords?.filter(record => record.attendanceStatus === 'cuti').length || 0;
+                  const totalAbsent = attendanceRecords?.filter(record => record.attendanceStatus === 'tidak hadir').length || 0;
+                  
+                  return (
+                    <div style={{ marginBottom: '15px' }}>
+                      <h3 style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '8px', borderBottom: '1px solid #333', paddingBottom: '3px' }}>REKAPITULASI KEHADIRAN</h3>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', fontSize: '10px' }}>
+                        <div style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'center', backgroundColor: '#f0f9ff' }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{totalWorkDays}</div>
+                          <div>Hari Kerja</div>
+                        </div>
+                        <div style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'center', backgroundColor: '#fff7ed' }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{totalLateMinutes}</div>
+                          <div>Menit Telat</div>
+                        </div>
+                        <div style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'center', backgroundColor: '#f0f9ff' }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{totalOvertimeHours.toFixed(1)}</div>
+                          <div>Jam Lembur</div>
+                        </div>
+                        <div style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'center', backgroundColor: '#f0fdf4' }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{totalLeave}</div>
+                          <div>Hari Cuti</div>
+                        </div>
+                        <div style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'center', backgroundColor: '#fef2f2' }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{totalAbsent}</div>
+                          <div>Tidak Hadir</div>
+                        </div>
+                        <div style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'center', backgroundColor: '#f8fafc' }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{new Date(selectedPayroll?.month + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</div>
+                          <div>Periode</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Footer Page 1 */}
+                <div className="print-footer" style={{ 
+                  fontSize: '8px',
+                  color: '#666',
+                  textAlign: 'center',
+                  borderTop: '1px solid #ddd',
+                  paddingTop: '4px'
+                }}>
+                  Halaman 1 - Detail Kehadiran | Dicetak pada: {new Date().toLocaleDateString('id-ID', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </div>
+              </div>
+
+              {/* PAGE 2: SALARY SUMMARY */}
+              <div className="salary-page">
+                {/* Header Page 2 */}
                 <div style={{ textAlign: 'center', marginBottom: '20px', borderBottom: '2px solid #000', paddingBottom: '10px' }}>
                   <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 5px 0' }}>SLIP GAJI KARYAWAN</h1>
                   <h2 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 5px 0' }}>{selectedPayroll?.store?.name || 'NAMA TOKO'}</h2>
                   <p style={{ fontSize: '12px', margin: '0', color: '#666' }}>Periode: {selectedPayroll?.month}</p>
                 </div>
 
-                {/* Employee Info */}
+                {/* Employee Info Page 2 */}
                 <div style={{ marginBottom: '20px' }}>
                   <table style={{ width: '100%', fontSize: '12px' }}>
-                    <tr>
-                      <td style={{ width: '150px', padding: '3px 0' }}><strong>Nama Karyawan</strong></td>
-                      <td style={{ padding: '3px 0' }}>: {selectedPayroll?.user?.name || '-'}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ padding: '3px 0' }}><strong>Periode Gaji</strong></td>
-                      <td style={{ padding: '3px 0' }}>: {selectedPayroll?.month}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ padding: '3px 0' }}><strong>Toko</strong></td>
-                      <td style={{ padding: '3px 0' }}>: {selectedPayroll?.store?.name || '-'}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ padding: '3px 0' }}><strong>Status</strong></td>
-                      <td style={{ padding: '3px 0' }}>: {selectedPayroll?.status?.toUpperCase() || 'PENDING'}</td>
-                    </tr>
+                    <tbody>
+                      <tr>
+                        <td style={{ width: '150px', padding: '3px 0' }}><strong>Nama Karyawan</strong></td>
+                        <td style={{ padding: '3px 0' }}>: {selectedPayroll?.user?.name || '-'}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: '3px 0' }}><strong>Periode Gaji</strong></td>
+                        <td style={{ padding: '3px 0' }}>: {selectedPayroll?.month}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: '3px 0' }}><strong>Toko</strong></td>
+                        <td style={{ padding: '3px 0' }}>: {selectedPayroll?.store?.name || '-'}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: '3px 0' }}><strong>Status</strong></td>
+                        <td style={{ padding: '3px 0' }}>: {selectedPayroll?.status?.toUpperCase() || 'PENDING'}</td>
+                      </tr>
+                    </tbody>
                   </table>
                 </div>
+
+                {/* Quick Attendance Summary */}
+                {(() => {
+                  const totalWorkDays = attendanceRecords?.filter(record => record.attendanceStatus === 'hadir').length || 0;
+                  const totalLateMinutes = attendanceRecords?.reduce((sum, record) => sum + (record.latenessMinutes || 0), 0) || 0;
+                  const totalOvertimeHours = attendanceRecords?.reduce((sum, record) => sum + ((record.overtimeMinutes || 0) / 60), 0) || 0;
+                  
+                  return (
+                    <div style={{ marginBottom: '20px' }}>
+                      <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px', borderBottom: '1px solid #333', paddingBottom: '5px' }}>RINGKASAN KEHADIRAN</h3>
+                      <table style={{ width: '100%', fontSize: '12px' }}>
+                        <tbody>
+                          <tr>
+                            <td style={{ width: '200px', padding: '3px 0' }}>Total Hari Kerja</td>
+                            <td style={{ padding: '3px 0' }}>: {totalWorkDays} hari</td>
+                          </tr>
+                          <tr>
+                            <td style={{ padding: '3px 0' }}>Total Keterlambatan</td>
+                            <td style={{ padding: '3px 0' }}>: {totalLateMinutes} menit</td>
+                          </tr>
+                          <tr>
+                            <td style={{ padding: '3px 0' }}>Total Lembur</td>
+                            <td style={{ padding: '3px 0' }}>: {totalOvertimeHours.toFixed(1)} jam</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
 
                 {/* Salary Details */}
                 <div style={{ marginBottom: '20px' }}>
@@ -438,7 +607,7 @@ export default function PayrollContent() {
                   </table>
                 </div>
 
-                {/* Summary */}
+                {/* Summary Box */}
                 <div style={{ marginBottom: '30px' }}>
                   <div style={{ 
                     border: '2px solid #333', 
@@ -451,34 +620,7 @@ export default function PayrollContent() {
                   </div>
                 </div>
 
-                {/* Attendance Summary */}
-                {(() => {
-                  const totalWorkDays = attendanceRecords?.filter(record => record.attendanceStatus === 'hadir').length || 0;
-                  const totalLateMinutes = attendanceRecords?.reduce((sum, record) => sum + (record.latenessMinutes || 0), 0) || 0;
-                  const totalOvertimeHours = attendanceRecords?.reduce((sum, record) => sum + ((record.overtimeMinutes || 0) / 60), 0) || 0;
-                  
-                  return (
-                    <div style={{ marginBottom: '30px' }}>
-                      <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px', borderBottom: '1px solid #333', paddingBottom: '5px' }}>REKAPITULASI KEHADIRAN</h3>
-                      <table style={{ width: '100%', fontSize: '12px' }}>
-                        <tr>
-                          <td style={{ width: '200px', padding: '3px 0' }}>Total Hari Kerja</td>
-                          <td style={{ padding: '3px 0' }}>: {totalWorkDays} hari</td>
-                        </tr>
-                        <tr>
-                          <td style={{ padding: '3px 0' }}>Total Keterlambatan</td>
-                          <td style={{ padding: '3px 0' }}>: {totalLateMinutes} menit</td>
-                        </tr>
-                        <tr>
-                          <td style={{ padding: '3px 0' }}>Total Lembur</td>
-                          <td style={{ padding: '3px 0' }}>: {totalOvertimeHours.toFixed(1)} jam</td>
-                        </tr>
-                      </table>
-                    </div>
-                  );
-                })()}
-
-                {/* Footer */}
+                {/* Signatures */}
                 <div style={{ 
                   marginTop: '40px',
                   display: 'flex',
@@ -495,16 +637,15 @@ export default function PayrollContent() {
                   </div>
                 </div>
 
-                {/* Print Date */}
-                <div style={{ 
-                  marginTop: '20px', 
-                  fontSize: '10px', 
+                {/* Footer Page 2 */}
+                <div className="print-footer" style={{ 
+                  fontSize: '8px', 
                   color: '#666',
                   textAlign: 'center',
                   borderTop: '1px solid #ddd',
-                  paddingTop: '10px'
+                  paddingTop: '4px'
                 }}>
-                  Dicetak pada: {new Date().toLocaleDateString('id-ID', { 
+                  Halaman 2 - Slip Gaji | Dicetak pada: {new Date().toLocaleDateString('id-ID', { 
                     year: 'numeric', 
                     month: 'long', 
                     day: 'numeric',

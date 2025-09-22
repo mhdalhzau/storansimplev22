@@ -214,48 +214,93 @@
 
 /* Print specific styles for salary slip */
 @media print {
-  /* Hide all content except the print content */
+  /* Set proper A4 page with required margins */
+  @page {
+    size: A4 portrait;
+    margin: 0.5mm;
+  }
+  
+  /* Hide all screen content except print content */
   body * {
     visibility: hidden;
   }
   
+  .screen-only {
+    display: none !important;
+  }
+  
   /* Show only the print content */
+  .print-content {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+  
   .print-content,
   .print-content * {
-    visibility: visible;
+    visibility: visible !important;
   }
   
-  .print-content {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
+  /* Remove the hidden class during print */
+  .hidden {
     display: block !important;
+    visibility: visible !important;
   }
   
-  /* Remove default margins and set A4 page size */
-  @page {
-    size: A4;
-    margin: 0.5mm;
-  }
-  
-  /* Ensure proper scaling for A4 */
-  .salary-slip {
+  /* Page containers with proper A4 sizing */
+  .attendance-page, .salary-page {
+    position: relative !important;
+    box-sizing: border-box !important;
     width: 210mm !important;
     min-height: 297mm !important;
     margin: 0 !important;
     padding: 10mm !important;
     font-family: Arial, sans-serif !important;
-    font-size: 12px !important;
-    line-height: 1.4 !important;
     color: #000 !important;
     background: #fff !important;
-    page-break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  
+  /* Page 1: Attendance details with optimized fonts */
+  .attendance-page {
+    font-size: 10px !important;
+    line-height: 1.3 !important;
+  }
+  
+  /* Page break between pages */
+  .page-break {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+  
+  /* Page 2: Salary summary */
+  .salary-page {
+    font-size: 11px !important;
+    line-height: 1.3 !important;
   }
   
   /* Hide normal view during print */
   .normal-view {
     display: none !important;
+  }
+  
+  /* Ensure tables don't break across pages */
+  table {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  
+  /* Footer positioning - fixed to bottom of page */
+  .print-footer {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    text-align: center !important;
+    background: #fff !important;
+    padding: 2mm !important;
   }
 }
