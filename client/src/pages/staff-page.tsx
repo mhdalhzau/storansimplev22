@@ -1,11 +1,26 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Plus, Minus, Copy, AlertTriangle, Save, Upload, X } from "lucide-react";
+import {
+  Plus,
+  Minus,
+  Copy,
+  AlertTriangle,
+  Save,
+  Upload,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -529,9 +544,7 @@ Setoran Harian 📋
 ${currentDate}
 
 🤷‍♂️ Nama: ${employeeName}
-🕐 Jam Kerja:
-Jam Masuk: ${jamMasuk}
-Jam Keluar: ${jamKeluar}
+🕐 Jam: (${jamMasuk} - ${jamKeluar})
 
 ⛽ Data Meter:
 Nomor Awal: ${nomorAwal}
