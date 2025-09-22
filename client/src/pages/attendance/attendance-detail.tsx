@@ -331,9 +331,12 @@ export default function AttendanceDetailPage() {
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               Tidak dapat menemukan data karyawan yang diminta.
             </p>
-            <Link href="/attendance" data-testid="button-back-to-list">
-              <Button>Kembali ke Daftar Karyawan</Button>
-            </Link>
+            <Button 
+              onClick={() => window.location.href = '/attendance'}
+              data-testid="button-back-to-list"
+            >
+              Kembali ke Daftar Karyawan
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -348,12 +351,15 @@ export default function AttendanceDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Link href="/attendance" data-testid="button-back-to-list">
-            <Button variant="outline" size="sm">
-              <ArrowLeftIcon className="h-4 w-4 mr-2" />
-              Kembali ke Daftar
-            </Button>
-          </Link>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.location.href = '/attendance'}
+            data-testid="button-back-to-list"
+          >
+            <ArrowLeftIcon className="h-4 w-4 mr-2" />
+            Kembali ke Daftar
+          </Button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100" data-testid="text-employee-name">
               {monthlyData.employee.name}
