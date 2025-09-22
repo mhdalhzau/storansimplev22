@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { formatRupiah } from "@/lib/utils";
 import { type Payroll } from "@shared/schema";
 import { Wallet, DollarSign, CheckCircle2 } from "lucide-react";
 
@@ -106,10 +107,10 @@ export default function PayrollContent() {
                       </div>
                     </TableCell>
                     <TableCell>{record.month}</TableCell>
-                    <TableCell>${parseFloat(record.baseSalary).toFixed(2)}</TableCell>
-                    <TableCell>${parseFloat(record.overtimePay || "0").toFixed(2)}</TableCell>
-                    <TableCell className="font-semibold">
-                      ${parseFloat(record.totalAmount).toFixed(2)}
+                    <TableCell data-testid={`text-base-salary-${record.id}`}>{formatRupiah(record.baseSalary)}</TableCell>
+                    <TableCell data-testid={`text-overtime-pay-${record.id}`}>{formatRupiah(record.overtimePay || "0")}</TableCell>
+                    <TableCell className="font-semibold" data-testid={`text-total-amount-${record.id}`}>
+                      {formatRupiah(record.totalAmount)}
                     </TableCell>
                     <TableCell>
                       <Badge 
