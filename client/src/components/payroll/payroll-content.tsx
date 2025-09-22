@@ -159,7 +159,7 @@ export default function PayrollContent() {
   });
 
   const handlePrint = useReactToPrint({
-    content: () => printRef.current,
+    contentRef: printRef,
     documentTitle: selectedPayroll ? `Payroll-${selectedPayroll.month}-${selectedPayroll.user?.name}` : 'Payroll',
   });
 
