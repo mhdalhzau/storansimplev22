@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,7 @@ interface PayrollWithUser extends Payroll {
 export default function PayrollContent() {
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
-  const [selectedPayroll, setSelectedPayroll] = useState<PayrollWithUser | null>(null);
+  const [selectedPayrollId, setSelectedPayrollId] = useState<string | null>(null);
   const [bonusDialogOpen, setBonusDialogOpen] = useState(false);
   const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -126,8 +126,8 @@ export default function PayrollContent() {
   });
 
   const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: `Payroll-${selectedPayroll?.month}-${selectedPayroll?.user?.name}`,
+    content: () => printRef.current,
+    documentTitle: selectedPayroll ? `Payroll-${selectedPayroll.month}-${selectedPayroll.user?.name}` : 'Payroll',
   });
 
   const addBonus = (record: PayrollWithUser) => {
@@ -180,16 +180,10 @@ export default function PayrollContent() {
     };
   }) || [];
 
-  // Auto-update selectedPayroll when processedRecords changes
-  useEffect(() => {
-    if (selectedPayroll && processedRecords.length > 0) {
-      const updatedSelected = processedRecords.find(record => record.id === selectedPayroll.id);
-      if (updatedSelected && JSON.stringify(updatedSelected.bonusList) !== JSON.stringify(selectedPayroll.bonusList) ||
-          JSON.stringify(updatedSelected.deductionList) !== JSON.stringify(selectedPayroll.deductionList)) {
-        setSelectedPayroll(updatedSelected);
-      }
-    }
-  }, [processedRecords.length, selectedPayroll?.id]);
+  // Derive selected payroll from processed records
+  const selectedPayroll = useMemo(() => {
+    return selectedPayrollId ? processedRecords.find(record => record.id === selectedPayrollId) || null : null;
+  }, [processedRecords, selectedPayrollId]);
 
   return (
     <Card>
@@ -301,7 +295,7 @@ export default function PayrollContent() {
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              setSelectedPayroll(record);
+                              setSelectedPayrollId(record.id);
                               setAttendanceDialogOpen(true);
                             }}
                             data-testid={`button-view-attendance-${record.id}`}
@@ -313,7 +307,7 @@ export default function PayrollContent() {
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              setSelectedPayroll(record);
+                              setSelectedPayrollId(record.id);
                               setDetailDialogOpen(true);
                             }}
                             data-testid={`button-view-detail-${record.id}`}
@@ -395,6 +389,7 @@ export default function PayrollContent() {
                             <th className="text-left p-2 font-medium">Hari</th>
                             <th className="text-left p-2 font-medium">Masuk</th>
                             <th className="text-left p-2 font-medium">Keluar</th>
+                            <th className="text-left p-2 font-medium">Telat</th>
                             <th className="text-left p-2 font-medium">Status</th>
                             <th className="text-left p-2 font-medium">Lembur (Jam)</th>
                           </tr>
@@ -424,6 +419,13 @@ export default function PayrollContent() {
                                     </span>
                                   ) : (
                                     <span className="text-gray-400">-</span>
+                                  )}
+                                </td>
+                                <td className="p-2">
+                                  {attendance?.latenessMinutes && attendance.latenessMinutes > 0 ? (
+                                    <span className="text-red-600 font-medium">{attendance.latenessMinutes} menit</span>
+                                  ) : (
+                                    <span className="text-green-600 text-xs">Tepat waktu</span>
                                   )}
                                 </td>
                                 <td className="p-2">
@@ -624,6 +626,7 @@ export default function PayrollContent() {
                         <th className="text-left p-3 font-medium">Date</th>
                         <th className="text-left p-3 font-medium">Check In</th>
                         <th className="text-left p-3 font-medium">Check Out</th>
+                        <th className="text-left p-3 font-medium">Telat</th>
                         <th className="text-left p-3 font-medium">Shift</th>
                         <th className="text-left p-3 font-medium">Status</th>
                         <th className="text-left p-3 font-medium">Overtime</th>
@@ -654,6 +657,17 @@ export default function PayrollContent() {
                             }`}>
                               {attendance.checkOut || '-'}
                             </span>
+                          </td>
+                          <td className="p-3">
+                            {attendance.latenessMinutes && attendance.latenessMinutes > 0 ? (
+                              <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-sm font-medium">
+                                {attendance.latenessMinutes} menit
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
+                                Tepat waktu
+                              </span>
+                            )}
                           </td>
                           <td className="p-3">
                             <Badge variant="outline">{attendance.shift || 'N/A'}</Badge>
