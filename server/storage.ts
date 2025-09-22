@@ -681,8 +681,37 @@ export class MemStorage implements IStorage {
     );
   }
 
+  // Helper function to determine attendance status based on checkIn/checkOut
+  private determineAttendanceStatus(checkIn: string | null, checkOut: string | null, currentStatus?: string): string {
+    // If status is explicitly set to 'cuti', preserve it (approved leave)
+    if (currentStatus === 'cuti') return currentStatus;
+    
+    // If both checkIn and checkOut are filled, set to 'hadir'
+    if (checkIn && checkOut) {
+      return 'hadir';
+    }
+    
+    // If either checkIn or checkOut is missing, default to 'alpha'
+    // This ensures no stale 'hadir' status when times are incomplete
+    return 'alpha';
+  }
+
   async createAttendance(insertAttendance: InsertAttendance): Promise<Attendance> {
     const id = randomUUID();
+    
+    // Determine initial attendance status - ignore client input except for 'cuti'
+    // This prevents clients from bypassing the checkIn/checkOut logic
+    let attendanceStatus: string;
+    if (insertAttendance.attendanceStatus === 'cuti') {
+      attendanceStatus = 'cuti'; // Allow manual 'cuti' setting
+    } else {
+      // Auto-derive based on checkIn/checkOut, ignoring any other client input
+      attendanceStatus = this.determineAttendanceStatus(
+        insertAttendance.checkIn ?? null, 
+        insertAttendance.checkOut ?? null
+      );
+    }
+    
     const record: Attendance = { 
       ...insertAttendance, 
       id,
@@ -695,7 +724,7 @@ export class MemStorage implements IStorage {
       breakDuration: insertAttendance.breakDuration ?? 0,
       overtime: insertAttendance.overtime ?? "0",
       notes: insertAttendance.notes ?? null,
-      attendanceStatus: insertAttendance.attendanceStatus ?? "hadir",
+      attendanceStatus,
       status: "pending",
       createdAt: new Date() 
     };
@@ -707,6 +736,33 @@ export class MemStorage implements IStorage {
     const record = this.attendanceRecords.get(id);
     if (record) {
       const updated = { ...record, ...data };
+      
+      // Handle attendance status updates with strict validation
+      if (data.attendanceStatus !== undefined) {
+        // Only allow manual setting to 'cuti', ignore other client inputs
+        if (data.attendanceStatus === 'cuti') {
+          updated.attendanceStatus = 'cuti';
+        } else {
+          // For any other status input, derive from checkIn/checkOut instead
+          const newCheckIn = data.checkIn !== undefined ? data.checkIn : record.checkIn;
+          const newCheckOut = data.checkOut !== undefined ? data.checkOut : record.checkOut;
+          updated.attendanceStatus = this.determineAttendanceStatus(
+            newCheckIn, 
+            newCheckOut, 
+            record.attendanceStatus
+          );
+        }
+      } else if (data.checkIn !== undefined || data.checkOut !== undefined) {
+        // Auto-update attendance status when checkIn/checkOut change
+        const newCheckIn = data.checkIn !== undefined ? data.checkIn : record.checkIn;
+        const newCheckOut = data.checkOut !== undefined ? data.checkOut : record.checkOut;
+        updated.attendanceStatus = this.determineAttendanceStatus(
+          newCheckIn, 
+          newCheckOut, 
+          record.attendanceStatus
+        );
+      }
+      
       this.attendanceRecords.set(id, updated);
       return updated;
     }
