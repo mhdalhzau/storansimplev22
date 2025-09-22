@@ -45,6 +45,39 @@ export default function PayrollContent() {
     queryKey: ["/api/stores"],
   });
 
+  // Process payroll data to include related user and store info first
+  const processedRecords = payrollRecords?.map(record => {
+    const user = users?.find(u => u.id === record.userId);
+    const store = stores?.find(s => s.id === record.storeId);
+    let bonusList = [];
+    let deductionList = [];
+    
+    try {
+      bonusList = record.bonuses ? JSON.parse(record.bonuses) : [];
+    } catch (e) {
+      console.warn('Failed to parse bonuses:', e);
+    }
+    
+    try {
+      deductionList = record.deductions ? JSON.parse(record.deductions) : [];
+    } catch (e) {
+      console.warn('Failed to parse deductions:', e);
+    }
+    
+    return {
+      ...record,
+      user,
+      store,
+      bonusList,
+      deductionList,
+    };
+  }) || [];
+
+  // Derive selected payroll from processed records
+  const selectedPayroll = useMemo(() => {
+    return selectedPayrollId ? processedRecords.find(record => record.id === selectedPayrollId) || null : null;
+  }, [processedRecords, selectedPayrollId]);
+
   // Fetch attendance data when selectedPayroll changes
   const { data: allAttendanceRecords } = useQuery<Array<any>>({
     queryKey: [`/api/attendance/user/${selectedPayroll?.userId}`],
@@ -152,38 +185,6 @@ export default function PayrollContent() {
     setNewDeduction({ name: '', amount: 0 });
   };
 
-  // Process payroll data to include related user and store info
-  const processedRecords = payrollRecords?.map(record => {
-    const user = users?.find(u => u.id === record.userId);
-    const store = stores?.find(s => s.id === record.storeId);
-    let bonusList = [];
-    let deductionList = [];
-    
-    try {
-      bonusList = record.bonuses ? JSON.parse(record.bonuses) : [];
-    } catch (e) {
-      console.warn('Failed to parse bonuses:', e);
-    }
-    
-    try {
-      deductionList = record.deductions ? JSON.parse(record.deductions) : [];
-    } catch (e) {
-      console.warn('Failed to parse deductions:', e);
-    }
-    
-    return {
-      ...record,
-      user,
-      store,
-      bonusList,
-      deductionList,
-    };
-  }) || [];
-
-  // Derive selected payroll from processed records
-  const selectedPayroll = useMemo(() => {
-    return selectedPayrollId ? processedRecords.find(record => record.id === selectedPayrollId) || null : null;
-  }, [processedRecords, selectedPayrollId]);
 
   return (
     <Card>
