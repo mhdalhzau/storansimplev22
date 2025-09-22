@@ -128,6 +128,7 @@ export const cashflow = pgTable("cashflow", {
 export const payroll = pgTable("payroll", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
+  storeId: integer("store_id").notNull(),
   month: text("month").notNull(), // 'YYYY-MM'
   baseSalary: decimal("base_salary", { precision: 10, scale: 2 }).notNull(),
   overtimePay: decimal("overtime_pay", { precision: 10, scale: 2 }).default("0"),
@@ -223,6 +224,18 @@ export const wallets = pgTable("wallets", {
   balance: decimal("balance", { precision: 15, scale: 2 }).default("0"),
   accountNumber: text("account_number"), // Bank account number (optional)
   description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Payroll Configuration table
+export const payrollConfig = pgTable("payroll_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  payrollCycle: text("payroll_cycle").notNull().default("30"), // '28' or '30' days
+  overtimeRate: decimal("overtime_rate", { precision: 10, scale: 2 }).notNull().default("10000"), // Rate per hour
+  startDate: text("start_date").notNull(), // ISO date string
+  nextPayrollDate: text("next_payroll_date"), // Calculated next payroll date
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -331,6 +344,16 @@ export const insertWalletSchema = createInsertSchema(wallets).omit({
   updatedAt: true,
 });
 
+export const insertPayrollConfigSchema = createInsertSchema(payrollConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  nextPayrollDate: true,
+}).extend({
+  // Transform number to string for decimal field compatibility
+  overtimeRate: z.coerce.number().min(0, "Overtime rate must be positive").transform((val) => val.toString()),
+});
+
 // Types
 export type User = typeof users.$inferSelect & { 
   stores?: Store[];
@@ -361,6 +384,8 @@ export type Piutang = typeof piutang.$inferSelect;
 export type InsertPiutang = z.infer<typeof insertPiutangSchema>;
 export type Wallet = typeof wallets.$inferSelect;
 export type InsertWallet = z.infer<typeof insertWalletSchema>;
+export type PayrollConfig = typeof payrollConfig.$inferSelect;
+export type InsertPayrollConfig = z.infer<typeof insertPayrollConfigSchema>;
 
 // Extended types with related data
 export type AttendanceWithEmployee = Attendance & {

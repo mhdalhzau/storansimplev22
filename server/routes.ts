@@ -1475,33 +1475,66 @@ export function registerRoutes(app: Express): Server {
         return res.status(403).json({ message: "No accessible stores" });
       }
       
-      // Generate payroll only for staff users in accessible stores
-      let users: any[] = [];
-      for (const storeId of accessibleStoreIds) {
-        const storeUsers = await storage.getUsersByStore(storeId);
-        users.push(...storeUsers.filter((u: any) => u.role === 'staff'));
-      }
-      
-      // Remove duplicates (users assigned to multiple stores)
-      const uniqueUsers = users.filter((user, index, self) => 
-        index === self.findIndex((u) => u.id === user.id)
-      );
-      
       const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
       
-      const payrollPromises = uniqueUsers.map(async (user: any) => {
-        const baseSalary = user.salary || "3000.00"; // Use user's salary or default
-        const overtimePay = "240.00"; // Mock overtime calculation
-        const totalAmount = (parseFloat(baseSalary) + parseFloat(overtimePay)).toString();
+      // Get payroll configuration
+      const payrollConfig = await storage.getPayrollConfig();
+      const payrollCycle = payrollConfig ? parseInt(payrollConfig.payrollCycle) : 30;
+      const overtimeRate = payrollConfig ? parseFloat(payrollConfig.overtimeRate) : 10000;
+      
+      // Generate payroll per store (per-store requirement)
+      const payrollPromises = [];
+      for (const storeId of accessibleStoreIds) {
+        const storeUsers = await storage.getUsersByStore(storeId);
+        const staffUsers = storeUsers.filter((u: any) => u.role === 'staff');
         
-        return storage.createPayroll({
-          userId: user.id,
-          month: currentMonth,
-          baseSalary,
-          overtimePay,
-          totalAmount,
-        });
-      });
+        for (const user of staffUsers) {
+          const monthlySalary = parseFloat(user.salary || "3000000"); // Default to 3M IDR
+          const dailySalary = monthlySalary / payrollCycle;
+          
+          // Calculate working days from attendance records for current month and this specific store
+          const attendanceRecords = await storage.getAttendanceByStore(storeId);
+          const userAttendanceThisMonth = attendanceRecords.filter(attendance => {
+            const attendanceDate = new Date(attendance.date || attendance.createdAt);
+            return attendance.userId === user.id &&
+                   attendanceDate.toISOString().slice(0, 7) === currentMonth && 
+                   attendance.checkIn && attendance.checkOut;
+          });
+          
+          // Count unique dates to ensure we don't double-count multiple shifts on same day
+          const uniqueDates = new Set(userAttendanceThisMonth.map(attendance => {
+            const attendanceDate = new Date(attendance.date || attendance.createdAt);
+            return attendanceDate.toISOString().split('T')[0]; // YYYY-MM-DD
+          }));
+          const workingDays = uniqueDates.size;
+          
+          // Calculate overtime hours from overtime records for current month and this specific store
+          const overtimeRecords = await storage.getAllOvertime();
+          const userOvertimeThisMonth = overtimeRecords.filter(overtime => 
+            overtime.userId === user.id &&
+            overtime.storeId === storeId &&
+            overtime.status === 'approved' &&
+            new Date(overtime.createdAt).toISOString().slice(0, 7) === currentMonth
+          );
+          const totalOvertimeHours = userOvertimeThisMonth.reduce((total, overtime) => 
+            total + parseFloat(overtime.hours || "0"), 0
+          );
+          
+          // Apply the formula: Total Salary = (Working Days × Daily Salary) + (Overtime Hours × Overtime Rate)
+          const basePay = workingDays * dailySalary;
+          const overtimePay = totalOvertimeHours * overtimeRate;
+          const totalAmount = basePay + overtimePay;
+          
+          payrollPromises.push(storage.createPayroll({
+            userId: user.id,
+            storeId: storeId,
+            month: currentMonth,
+            baseSalary: basePay.toFixed(2),
+            overtimePay: overtimePay.toFixed(2),
+            totalAmount: totalAmount.toFixed(2),
+          }));
+        }
+      }
       
       const payrolls = await Promise.all(payrollPromises);
       res.status(201).json(payrolls);
@@ -1581,6 +1614,46 @@ export function registerRoutes(app: Express): Server {
       if (!payroll) return res.status(404).json({ message: "Payroll not found" });
       
       res.json(payroll);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Payroll Configuration routes
+  app.get("/api/payroll/config", async (req, res) => {
+    try {
+      if (!req.user || !['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const config = await storage.getPayrollConfig();
+      if (!config) {
+        // Return default configuration if none exists
+        return res.json({
+          payrollCycle: "30",
+          overtimeRate: 10000,
+          startDate: new Date().toISOString().split('T')[0],
+          nextPayrollDate: "",
+        });
+      }
+      
+      res.json(config);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/payroll/config", async (req, res) => {
+    try {
+      if (!req.user || !['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const { insertPayrollConfigSchema } = await import("@shared/schema");
+      const validatedData = insertPayrollConfigSchema.parse(req.body);
+      
+      const config = await storage.createOrUpdatePayrollConfig(validatedData);
+      res.status(201).json(config);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }

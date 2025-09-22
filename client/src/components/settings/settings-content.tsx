@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Users, Store, Settings as SettingsIcon, Cloud, Database } from "lucide-react";
+import { Users, Store, Settings as SettingsIcon, Cloud, Database, Wallet } from "lucide-react";
 import UserManagementContent from "@/components/user-management/user-management-content";
 import StoreManagementContent from "@/components/store-management/store-management-content";
 import GoogleSheetsConfigContent from "@/components/settings/google-sheets-config-content";
+import PayrollSettingsContent from "@/components/settings/payroll-settings-content";
 
 interface SettingsMenuItem {
   id: string;
@@ -31,6 +32,13 @@ const settingsMenuItems: SettingsMenuItem[] = [
     icon: <Store className="w-5 h-5" />,
     allowedRoles: ["manager"],
     description: "Manage store information and personnel"
+  },
+  {
+    id: "payroll-settings",
+    label: "Payroll Management", 
+    icon: <Wallet className="w-5 h-5" />,
+    allowedRoles: ["manager"],
+    description: "Configure payroll dates and salary calculation formulas"
   },
   {
     id: "google-sheets-sync",
@@ -71,6 +79,8 @@ export default function SettingsContent() {
         return <UserManagementContent />;
       case "store-management":
         return <StoreManagementContent />;
+      case "payroll-settings":
+        return <PayrollSettingsContent />;
       case "google-sheets-sync":
         return <GoogleSheetsConfigContent />;
       default:

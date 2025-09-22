@@ -26,6 +26,8 @@ import {
   type InsertPiutang,
   type Wallet,
   type InsertWallet,
+  type PayrollConfig,
+  type InsertPayrollConfig,
   TRANSACTION_TYPES
 } from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -138,6 +140,10 @@ export interface IStorage {
   updateWalletBalance(id: string, balance: string): Promise<Wallet | undefined>;
   deleteWallet(id: string): Promise<void>;
   
+  // Payroll Configuration methods
+  getPayrollConfig(): Promise<PayrollConfig | undefined>;
+  createOrUpdatePayrollConfig(config: InsertPayrollConfig): Promise<PayrollConfig>;
+  
   sessionStore: SessionStore;
 }
 
@@ -155,6 +161,7 @@ export class MemStorage implements IStorage {
   private customerRecords: Map<string, Customer>;
   private piutangRecords: Map<string, Piutang>;
   private walletRecords: Map<string, Wallet>;
+  private payrollConfigRecords: Map<string, PayrollConfig>;
   public sessionStore: SessionStore;
 
   constructor() {
@@ -171,6 +178,7 @@ export class MemStorage implements IStorage {
     this.customerRecords = new Map();
     this.piutangRecords = new Map();
     this.walletRecords = new Map();
+    this.payrollConfigRecords = new Map();
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000,
@@ -1509,6 +1517,50 @@ export class MemStorage implements IStorage {
       };
       this.walletRecords.set(id, updated);
     }
+  }
+
+  // Payroll Configuration methods
+  async getPayrollConfig(): Promise<PayrollConfig | undefined> {
+    // Since there's only one config, we get the first (and only) one
+    const configs = Array.from(this.payrollConfigRecords.values()).filter(
+      (config) => config.isActive
+    );
+    return configs.length > 0 ? configs[0] : undefined;
+  }
+
+  async createOrUpdatePayrollConfig(insertConfig: InsertPayrollConfig): Promise<PayrollConfig> {
+    // First, deactivate any existing config
+    const existingConfigs = Array.from(this.payrollConfigRecords.values());
+    existingConfigs.forEach(config => {
+      if (config.isActive) {
+        const deactivated = { 
+          ...config, 
+          isActive: false, 
+          updatedAt: new Date() 
+        };
+        this.payrollConfigRecords.set(config.id, deactivated);
+      }
+    });
+
+    // Calculate next payroll date
+    const startDate = new Date(insertConfig.startDate);
+    const cycle = parseInt(insertConfig.payrollCycle);
+    const nextPayrollDate = new Date(startDate);
+    nextPayrollDate.setDate(startDate.getDate() + cycle);
+
+    // Create new config
+    const id = randomUUID();
+    const config: PayrollConfig = {
+      ...insertConfig,
+      id,
+      nextPayrollDate: nextPayrollDate.toISOString().split('T')[0],
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    this.payrollConfigRecords.set(id, config);
+    return config;
   }
 }
 
