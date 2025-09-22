@@ -159,7 +159,7 @@ export default function PayrollContent() {
   });
 
   const handlePrint = useReactToPrint({
-    content: () => printRef.current,
+    contentRef: printRef,
     documentTitle: selectedPayroll ? `Payroll-${selectedPayroll.month}-${selectedPayroll.user?.name}` : 'Payroll',
   });
 
@@ -359,7 +359,7 @@ export default function PayrollContent() {
           </DialogHeader>
           <ScrollArea className="max-h-[70vh]">
             {/* Print Content - Hidden salary slip format */}
-            <div ref={printRef} className="print-content hidden">
+            <div ref={printRef} className="print-content" style={{position: 'absolute', left: '-9999px', top: '-9999px'}}>
               {/* PAGE 1: ATTENDANCE DETAILS */}
               <div className="attendance-page page-break">
                 {/* Header Page 1 */}
