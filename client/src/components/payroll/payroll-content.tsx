@@ -355,8 +355,168 @@ export default function PayrollContent() {
             </div>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh]">
-            <div ref={printRef} className="print-content">
-            <div className="space-y-6">
+            {/* Print Content - Hidden salary slip format */}
+            <div ref={printRef} className="print-content hidden">
+              <div className="salary-slip" style={{
+                width: '210mm',
+                minHeight: '297mm',
+                margin: '0.5mm',
+                padding: '10mm',
+                fontFamily: 'Arial, sans-serif',
+                fontSize: '12px',
+                lineHeight: '1.4',
+                color: '#000',
+                backgroundColor: '#fff'
+              }}>
+                {/* Header */}
+                <div style={{ textAlign: 'center', marginBottom: '20px', borderBottom: '2px solid #000', paddingBottom: '10px' }}>
+                  <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 5px 0' }}>SLIP GAJI KARYAWAN</h1>
+                  <h2 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 5px 0' }}>{selectedPayroll?.store?.name || 'NAMA TOKO'}</h2>
+                  <p style={{ fontSize: '12px', margin: '0', color: '#666' }}>Periode: {selectedPayroll?.month}</p>
+                </div>
+
+                {/* Employee Info */}
+                <div style={{ marginBottom: '20px' }}>
+                  <table style={{ width: '100%', fontSize: '12px' }}>
+                    <tr>
+                      <td style={{ width: '150px', padding: '3px 0' }}><strong>Nama Karyawan</strong></td>
+                      <td style={{ padding: '3px 0' }}>: {selectedPayroll?.user?.name || '-'}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '3px 0' }}><strong>Periode Gaji</strong></td>
+                      <td style={{ padding: '3px 0' }}>: {selectedPayroll?.month}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '3px 0' }}><strong>Toko</strong></td>
+                      <td style={{ padding: '3px 0' }}>: {selectedPayroll?.store?.name || '-'}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '3px 0' }}><strong>Status</strong></td>
+                      <td style={{ padding: '3px 0' }}>: {selectedPayroll?.status?.toUpperCase() || 'PENDING'}</td>
+                    </tr>
+                  </table>
+                </div>
+
+                {/* Salary Details */}
+                <div style={{ marginBottom: '20px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px', borderBottom: '1px solid #333', paddingBottom: '5px' }}>RINCIAN GAJI</h3>
+                  <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f5f5f5' }}>
+                        <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Komponen</th>
+                        <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>Jumlah</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={{ border: '1px solid #ddd', padding: '6px' }}>Gaji Pokok</td>
+                        <td style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right' }}>{formatRupiah(selectedPayroll?.baseSalary || 0)}</td>
+                      </tr>
+                      {selectedPayroll?.overtimePay && parseInt(selectedPayroll.overtimePay) > 0 && (
+                        <tr>
+                          <td style={{ border: '1px solid #ddd', padding: '6px' }}>Lembur</td>
+                          <td style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right' }}>{formatRupiah(selectedPayroll.overtimePay)}</td>
+                        </tr>
+                      )}
+                      {selectedPayroll?.bonusList?.map((bonus, index) => (
+                        <tr key={`bonus-${index}`}>
+                          <td style={{ border: '1px solid #ddd', padding: '6px' }}>Bonus: {bonus.name}</td>
+                          <td style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right', color: '#22c55e' }}>{formatRupiah(bonus.amount)}</td>
+                        </tr>
+                      ))}
+                      {selectedPayroll?.deductionList?.map((deduction, index) => (
+                        <tr key={`deduction-${index}`}>
+                          <td style={{ border: '1px solid #ddd', padding: '6px' }}>Potongan: {deduction.name}</td>
+                          <td style={{ border: '1px solid #ddd', padding: '6px', textAlign: 'right', color: '#ef4444' }}>-{formatRupiah(deduction.amount)}</td>
+                        </tr>
+                      ))}
+                      <tr style={{ backgroundColor: '#f9f9f9', fontWeight: 'bold' }}>
+                        <td style={{ border: '1px solid #ddd', padding: '8px', fontSize: '14px' }}>TOTAL GAJI</td>
+                        <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', fontSize: '14px' }}>{formatRupiah(selectedPayroll?.totalAmount || 0)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Summary */}
+                <div style={{ marginBottom: '30px' }}>
+                  <div style={{ 
+                    border: '2px solid #333', 
+                    padding: '15px', 
+                    backgroundColor: '#f8f9fa',
+                    textAlign: 'center'
+                  }}>
+                    <p style={{ margin: '0 0 10px 0', fontSize: '14px', fontWeight: 'bold' }}>TOTAL GAJI YANG DITERIMA</p>
+                    <p style={{ margin: '0', fontSize: '20px', fontWeight: 'bold', color: '#1e40af' }}>{formatRupiah(selectedPayroll?.totalAmount || 0)}</p>
+                  </div>
+                </div>
+
+                {/* Attendance Summary */}
+                {(() => {
+                  const totalWorkDays = attendanceRecords?.filter(record => record.attendanceStatus === 'hadir').length || 0;
+                  const totalLateMinutes = attendanceRecords?.reduce((sum, record) => sum + (record.latenessMinutes || 0), 0) || 0;
+                  const totalOvertimeHours = attendanceRecords?.reduce((sum, record) => sum + ((record.overtimeMinutes || 0) / 60), 0) || 0;
+                  
+                  return (
+                    <div style={{ marginBottom: '30px' }}>
+                      <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px', borderBottom: '1px solid #333', paddingBottom: '5px' }}>REKAPITULASI KEHADIRAN</h3>
+                      <table style={{ width: '100%', fontSize: '12px' }}>
+                        <tr>
+                          <td style={{ width: '200px', padding: '3px 0' }}>Total Hari Kerja</td>
+                          <td style={{ padding: '3px 0' }}>: {totalWorkDays} hari</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '3px 0' }}>Total Keterlambatan</td>
+                          <td style={{ padding: '3px 0' }}>: {totalLateMinutes} menit</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '3px 0' }}>Total Lembur</td>
+                          <td style={{ padding: '3px 0' }}>: {totalOvertimeHours.toFixed(1)} jam</td>
+                        </tr>
+                      </table>
+                    </div>
+                  );
+                })()}
+
+                {/* Footer */}
+                <div style={{ 
+                  marginTop: '40px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: '12px'
+                }}>
+                  <div style={{ width: '45%', textAlign: 'center' }}>
+                    <p style={{ margin: '0 0 60px 0' }}>Mengetahui,</p>
+                    <p style={{ margin: '0', borderTop: '1px solid #000', paddingTop: '5px' }}>Pimpinan</p>
+                  </div>
+                  <div style={{ width: '45%', textAlign: 'center' }}>
+                    <p style={{ margin: '0 0 60px 0' }}>Karyawan,</p>
+                    <p style={{ margin: '0', borderTop: '1px solid #000', paddingTop: '5px' }}>{selectedPayroll?.user?.name || ''}</p>
+                  </div>
+                </div>
+
+                {/* Print Date */}
+                <div style={{ 
+                  marginTop: '20px', 
+                  fontSize: '10px', 
+                  color: '#666',
+                  textAlign: 'center',
+                  borderTop: '1px solid #ddd',
+                  paddingTop: '10px'
+                }}>
+                  Dicetak pada: {new Date().toLocaleDateString('id-ID', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Normal View Content */}
+            <div className="normal-view space-y-6">
               {/* Monthly Calendar Table */}
               <div>
                 <h3 className="font-semibold mb-3">Attendance Details - {selectedPayroll?.month}</h3>
@@ -604,7 +764,6 @@ export default function PayrollContent() {
                   </div>
                 );
               })()}
-            </div>
             </div>
           </ScrollArea>
         </DialogContent>

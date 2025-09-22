@@ -211,3 +211,51 @@
 .custom-scroll::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--primary));
 }
+
+/* Print specific styles for salary slip */
+@media print {
+  /* Hide all content except the print content */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Show only the print content */
+  .print-content,
+  .print-content * {
+    visibility: visible;
+  }
+  
+  .print-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    display: block !important;
+  }
+  
+  /* Remove default margins and set A4 page size */
+  @page {
+    size: A4;
+    margin: 0.5mm;
+  }
+  
+  /* Ensure proper scaling for A4 */
+  .salary-slip {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 10mm !important;
+    font-family: Arial, sans-serif !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    color: #000 !important;
+    background: #fff !important;
+    page-break-inside: avoid;
+  }
+  
+  /* Hide normal view during print */
+  .normal-view {
+    display: none !important;
+  }
+}
