@@ -3,8 +3,8 @@ from typing import Optional
 
 
 class Settings(BaseSettings):
-    # Database - Default ke SQLite untuk dev, bisa override dengan env var
-    database_url: str = "sqlite:///./setoran.db"
+    # Database - Use environment variable for secure configuration
+    database_url: str
     
     # API
     api_title: str = "Setoran Harian API"
