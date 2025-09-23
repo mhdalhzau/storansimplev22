@@ -2542,12 +2542,25 @@ export function registerRoutes(app: Express): Server {
     try {
       if (!req.user) return res.status(401).json({ message: "Unauthorized" });
       
+      const { storeId, limit = 50 } = req.query;
+      
       // Get accessible store IDs for this user
       const accessibleStoreIds = await getAccessibleStoreIds(req.user);
       
+      let targetStoreIds = accessibleStoreIds;
+      
+      // If specific store requested, verify access and filter to that store
+      if (storeId) {
+        const requestedStoreId = parseInt(storeId as string);
+        if (!accessibleStoreIds.includes(requestedStoreId)) {
+          return res.status(403).json({ message: "You don't have access to this store" });
+        }
+        targetStoreIds = [requestedStoreId];
+      }
+      
       const allTransactions = [];
       
-      for (const storeId of accessibleStoreIds) {
+      for (const storeId of targetStoreIds) {
         // Get store information
         const store = await storage.getStore(storeId);
         if (!store) continue;
@@ -2567,8 +2580,9 @@ export function registerRoutes(app: Express): Server {
       // Sort by date (newest first)
       allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       
-      // Limit to recent 50 transactions
-      const recentTransactions = allTransactions.slice(0, 50);
+      // Limit transactions
+      const limitNum = parseInt(limit as string);
+      const recentTransactions = allTransactions.slice(0, limitNum);
       
       res.json(recentTransactions);
     } catch (error: any) {

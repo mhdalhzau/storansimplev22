@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { type Cashflow } from "@shared/schema";
+import { useState, useEffect } from "react";
 
 interface WalletTransaction extends Cashflow {
   storeName: string;
@@ -39,12 +40,30 @@ interface StoreWallet {
 }
 
 export default function WalletDashboard() {
+  const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
+
   const { data: storeWallets, isLoading: isLoadingWallets } = useQuery<StoreWallet[]>({
     queryKey: ["/api/dashboard/store-wallets"],
   });
 
+  // Set default selected store when stores load
+  useEffect(() => {
+    if (storeWallets && storeWallets.length > 0 && selectedStoreId === null) {
+      setSelectedStoreId(storeWallets[0].storeId);
+    }
+  }, [storeWallets, selectedStoreId]);
+
   const { data: transactions, isLoading: isLoadingTransactions } = useQuery<WalletTransaction[]>({
-    queryKey: ["/api/wallet/transactions"],
+    queryKey: ["/api/wallet/transactions", selectedStoreId],
+    queryFn: async () => {
+      const url = selectedStoreId 
+        ? `/api/wallet/transactions?storeId=${selectedStoreId}&limit=50`
+        : "/api/wallet/transactions?limit=50";
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch transactions');
+      return response.json();
+    },
+    enabled: selectedStoreId !== null,
   });
 
   const formatCurrency = (amount: string | number) => {
@@ -135,83 +154,120 @@ export default function WalletDashboard() {
         </div>
       </div>
 
-      {/* Transaction History */}
+      {/* Transaction History per Store */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Riwayat Transaksi
-            </CardTitle>
-            <Button variant="outline" size="sm">
-              <Filter className="h-4 w-4 mr-2" />
-              Filter
-            </Button>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Riwayat Transaksi per Store
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoadingTransactions ? (
-            <div className="space-y-4">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-4 p-4">
-                  <Skeleton className="h-10 w-10 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-1/2" />
-                  </div>
-                  <Skeleton className="h-6 w-20" />
-                </div>
-              ))}
-            </div>
-          ) : transactions && transactions.length > 0 ? (
-            <div className="space-y-1">
-              {transactions.map((transaction) => (
-                <div key={transaction.id} className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg border-b border-gray-100 last:border-b-0">
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                      {getTransactionIcon(transaction.category, transaction.type)}
+          {storeWallets && storeWallets.length > 0 ? (
+            <Tabs 
+              value={selectedStoreId?.toString()} 
+              onValueChange={(value) => setSelectedStoreId(parseInt(value))}
+              className="w-full"
+            >
+              <TabsList className="grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3" data-testid="store-tabs">
+                {storeWallets.map((store) => (
+                  <TabsTrigger 
+                    key={store.storeId} 
+                    value={store.storeId.toString()}
+                    data-testid={`tab-store-${store.storeId}`}
+                  >
+                    {store.storeName}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              
+              {storeWallets.map((store) => (
+                <TabsContent key={store.storeId} value={store.storeId.toString()} className="mt-4">
+                  <div className="space-y-4">
+                    {/* Store Summary */}
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div>
+                        <h3 className="font-semibold">{store.storeName}</h3>
+                        <p className="text-sm text-gray-600">Saldo Total: {store.totalBalance}</p>
+                      </div>
+                      <Badge variant="outline">{store.walletCount} Wallet</Badge>
                     </div>
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {transaction.type}
-                      </p>
-                      <Badge variant={transaction.category === 'Income' ? 'default' : 'destructive'} className="text-xs">
-                        {transaction.category}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <span>{transaction.storeName}</span>
-                      <span>•</span>
-                      <span>{format(new Date(transaction.date), 'dd MMM yyyy, HH:mm', { locale: localeId })}</span>
-                    </div>
-                    {transaction.description && (
-                      <p className="text-xs text-gray-600 mt-1 truncate">
-                        {transaction.description}
-                      </p>
+
+                    {/* Transactions for this store */}
+                    {isLoadingTransactions ? (
+                      <div className="space-y-4">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <div key={i} className="flex items-center gap-4 p-4">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <div className="flex-1 space-y-2">
+                              <Skeleton className="h-4 w-3/4" />
+                              <Skeleton className="h-3 w-1/2" />
+                            </div>
+                            <Skeleton className="h-6 w-20" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : transactions && transactions.length > 0 ? (
+                      <div className="space-y-1">
+                        {transactions.map((transaction) => (
+                          <div 
+                            key={transaction.id} 
+                            className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg border-b border-gray-100 last:border-b-0"
+                            data-testid={`transaction-${transaction.id}`}
+                          >
+                            <div className="flex-shrink-0">
+                              <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                                {getTransactionIcon(transaction.category, transaction.type)}
+                              </div>
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {transaction.type}
+                                </p>
+                                <Badge variant={transaction.category === 'Income' ? 'default' : 'destructive'} className="text-xs">
+                                  {transaction.category}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-4 text-xs text-gray-500">
+                                <span>{format(new Date(transaction.date), 'dd MMM yyyy, HH:mm', { locale: localeId })}</span>
+                              </div>
+                              {transaction.description && (
+                                <p className="text-xs text-gray-600 mt-1 truncate">
+                                  {transaction.description}
+                                </p>
+                              )}
+                            </div>
+                            
+                            <div className="flex-shrink-0 text-right">
+                              <p className={`text-sm font-semibold ${getTransactionColor(transaction.category)}`}>
+                                {transaction.category === 'Income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                              </p>
+                              {transaction.paymentStatus && transaction.paymentStatus !== 'lunas' && (
+                                <Badge variant="outline" className="text-xs mt-1">
+                                  {transaction.paymentStatus}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>Belum ada transaksi untuk {store.storeName}</p>
+                        <p className="text-sm mt-1">Transaksi akan muncul di sini</p>
+                      </div>
                     )}
                   </div>
-                  
-                  <div className="flex-shrink-0 text-right">
-                    <p className={`text-sm font-semibold ${getTransactionColor(transaction.category)}`}>
-                      {transaction.category === 'Income' ? '+' : '-'}{formatCurrency(transaction.amount)}
-                    </p>
-                    {transaction.paymentStatus && transaction.paymentStatus !== 'lunas' && (
-                      <Badge variant="outline" className="text-xs mt-1">
-                        {transaction.paymentStatus}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
+                </TabsContent>
               ))}
-            </div>
+            </Tabs>
           ) : (
             <div className="text-center py-8 text-gray-500">
-              <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Belum ada transaksi</p>
-              <p className="text-sm mt-1">Transaksi akan muncul di sini</p>
+              <Building className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Belum ada data store</p>
             </div>
           )}
         </CardContent>
