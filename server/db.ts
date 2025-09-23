@@ -2,12 +2,12 @@ import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 
-// Use Aiven database URL if available, otherwise fall back to default DATABASE_URL
-const databaseUrl = process.env.AIVEN_DATABASE_URL || process.env.DATABASE_URL;
+// ONLY use Aiven database URL - no fallback to prevent using Replit database
+const databaseUrl = process.env.AIVEN_DATABASE_URL;
 
 if (!databaseUrl) {
   throw new Error(
-    "AIVEN_DATABASE_URL or DATABASE_URL must be set. Did you forget to provision a database?",
+    "AIVEN_DATABASE_URL must be set. This application requires Aiven PostgreSQL database.",
   );
 }
 

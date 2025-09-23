@@ -1,14 +1,10 @@
 import { defineConfig } from "drizzle-kit";
 
-// Use Aiven database URL if available, otherwise fall back to default DATABASE_URL
-let databaseUrl = process.env.AIVEN_DATABASE_URL || process.env.DATABASE_URL;
-// For Aiven, SSL is required, so modify config to handle certificates properly
-if (databaseUrl && databaseUrl.includes('sslmode=require')) {
-  // Keep SSL enabled but ignore certificate verification
-}
+// ONLY use Aiven database URL - no fallback to prevent using Replit database  
+let databaseUrl = process.env.AIVEN_DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error("AIVEN_DATABASE_URL or DATABASE_URL, ensure the database is provisioned");
+  throw new Error("AIVEN_DATABASE_URL must be set. This application requires Aiven PostgreSQL database.");
 }
 
 export default defineConfig({
