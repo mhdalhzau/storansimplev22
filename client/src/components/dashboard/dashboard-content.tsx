@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, TrendingDown, FileText, TrendingUp, Clock, Wallet } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import WalletDashboard from "@/components/wallet/wallet-dashboard";
+import MobileBankingWallet from "@/components/wallet/mobile-banking-wallet";
 
 interface DashboardStats {
   totalIncome: string;
@@ -159,8 +159,8 @@ export default function DashboardContent() {
         </Card>
       </div>
 
-      {/* Bank-style Wallet Dashboard */}
-      <WalletDashboard />
+      {/* Mobile Banking Style Wallet */}
+      <MobileBankingWallet />
 
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
