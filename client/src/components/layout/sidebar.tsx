@@ -14,7 +14,10 @@ import {
   Settings,
   LogOut,
   Contact,
-  Receipt 
+  Receipt,
+  Package,
+  Truck,
+  Archive
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +69,24 @@ const menuItems: MenuItem[] = [
     label: "Piutang (A/R)",
     icon: <Receipt className="w-5 h-5" />,
     allowedRoles: ["manager", "administrasi"],
+  },
+  {
+    id: "suppliers",
+    label: "Suppliers",
+    icon: <Truck className="w-5 h-5" />,
+    allowedRoles: ["staff", "manager", "administrasi"],
+  },
+  {
+    id: "products",
+    label: "Products",
+    icon: <Package className="w-5 h-5" />,
+    allowedRoles: ["staff", "manager", "administrasi"],
+  },
+  {
+    id: "inventory",
+    label: "Inventory",
+    icon: <Archive className="w-5 h-5" />,
+    allowedRoles: ["staff", "manager", "administrasi"],
   },
   {
     id: "payroll",
