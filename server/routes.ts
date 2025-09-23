@@ -2537,6 +2537,45 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Wallet transactions endpoint
+  app.get("/api/wallet/transactions", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      // Get accessible store IDs for this user
+      const accessibleStoreIds = await getAccessibleStoreIds(req.user);
+      
+      const allTransactions = [];
+      
+      for (const storeId of accessibleStoreIds) {
+        // Get store information
+        const store = await storage.getStore(storeId);
+        if (!store) continue;
+        
+        // Get cashflow transactions for this store
+        const cashflowRecords = await storage.getCashflowByStore(storeId);
+        
+        // Transform and add store name to each transaction
+        const transactionsWithStore = cashflowRecords.map(transaction => ({
+          ...transaction,
+          storeName: store.name
+        }));
+        
+        allTransactions.push(...transactionsWithStore);
+      }
+      
+      // Sort by date (newest first)
+      allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      // Limit to recent 50 transactions
+      const recentTransactions = allTransactions.slice(0, 50);
+      
+      res.json(recentTransactions);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // User Management routes (Manager only)
   app.get("/api/users", async (req, res) => {
     try {

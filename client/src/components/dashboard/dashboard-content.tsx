@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, TrendingDown, FileText, TrendingUp, Clock, Wallet } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import WalletDashboard from "@/components/wallet/wallet-dashboard";
 
 interface DashboardStats {
   totalIncome: string;
@@ -158,62 +159,8 @@ export default function DashboardContent() {
         </Card>
       </div>
 
-      {/* Individual Store Wallet Balances */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4 text-foreground">Saldo Virtual Wallet per Store</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {storeWallets && storeWallets.length > 0 ? (
-            storeWallets.map((storeWallet) => (
-              <Card key={storeWallet.storeId} data-testid={`card-store-wallet-${storeWallet.storeId}`}>
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="bg-purple-100 p-3 rounded-lg">
-                      <Wallet className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">{storeWallet.storeName}</p>
-                      <p className="text-2xl font-bold text-foreground" data-testid={`text-store-balance-${storeWallet.storeId}`}>
-                        {storeWallet.totalBalance}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {storeWallet.walletCount} wallet{storeWallet.walletCount !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* Individual Wallets Details */}
-                  {storeWallet.wallets.length > 0 && (
-                    <div className="mt-4 pt-4 border-t">
-                      <p className="text-xs text-muted-foreground mb-2">Detail Wallet:</p>
-                      <div className="space-y-1">
-                        {storeWallet.wallets.map((wallet) => (
-                          <div key={wallet.id} className="flex justify-between items-center text-sm">
-                            <span className="text-muted-foreground">{wallet.name}</span>
-                            <span className="font-medium" data-testid={`text-wallet-balance-${wallet.id}`}>
-                              {wallet.balance}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))
-          ) : isStoreWalletsError ? (
-            <div className="col-span-full text-center text-red-500 py-8">
-              <Wallet className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Gagal memuat data wallet store</p>
-              <p className="text-sm text-muted-foreground mt-2">Silakan refresh halaman</p>
-            </div>
-          ) : (
-            <div className="col-span-full text-center text-muted-foreground py-8">
-              <Wallet className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Belum ada data wallet store</p>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Bank-style Wallet Dashboard */}
+      <WalletDashboard />
 
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
