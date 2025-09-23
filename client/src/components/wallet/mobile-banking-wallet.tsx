@@ -156,145 +156,180 @@ export default function MobileBankingWallet() {
   }
 
   return (
-    <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-      {/* Mobile Banking Header */}
-      <div className="relative bg-gradient-to-br from-orange-400 via-orange-500 to-yellow-500 pb-8">
-        {/* Abstract green paint splash overlay */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-12 left-0 w-full h-20 bg-green-400 opacity-80 transform -skew-y-3 rotate-12"></div>
-          <div className="absolute top-16 right-0 w-3/4 h-16 bg-green-300 opacity-70 transform skew-y-2 -rotate-6"></div>
-        </div>
-        
-        {/* Header content */}
-        <div className="relative z-10 px-4 pt-8 pb-6">
-          <div className="flex items-center justify-between mb-6">
-            <ArrowLeft className="h-5 w-5 text-white" />
-            <h1 className="text-white text-base font-medium">Tabungan Bisnis</h1>
-            <div className="w-5 h-5 rounded-full border border-white flex items-center justify-center">
-              <span className="text-white text-xs">i</span>
-            </div>
-          </div>
-          
-          {/* Store selector for multiple stores */}
-          {storeWallets && storeWallets.length > 1 && (
-            <div className="mb-4">
-              <select 
-                value={selectedStoreId || ''} 
-                onChange={(e) => setSelectedStoreId(parseInt(e.target.value))}
-                className="bg-white/20 text-white text-sm rounded-lg px-3 py-2 border border-white/30 w-full"
-                data-testid="store-selector"
-              >
-                {storeWallets.map(store => (
-                  <option key={store.storeId} value={store.storeId} className="text-gray-900">
-                    {store.storeName}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          
-          {/* Balance */}
-          <div className="text-center">
-            <div className="text-white text-3xl font-bold mb-1">
-              {selectedStore?.totalBalance || 'Rp 0,00'}
-            </div>
-            <div className="text-white/80 text-sm">
-              {selectedStore?.storeName}
-            </div>
-          </div>
+    <div className="bg-white">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Informasi Wallet per Store</h1>
+        <p className="text-gray-600">Kelola cashflow dan transaksi untuk setiap toko</p>
+      </div>
+
+      {/* Store Wallets Table */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Ringkasan Wallet per Store</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Store
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Total Balance
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Aksi
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {isLoadingWallets ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Skeleton className="h-4 w-24" />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Skeleton className="h-4 w-32" />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Skeleton className="h-4 w-16" />
+                    </td>
+                  </tr>
+                ))
+              ) : storeWallets && storeWallets.length > 0 ? (
+                storeWallets.map((store) => (
+                  <tr key={store.storeId} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {store.storeName}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <span className="font-semibold">{store.totalBalance || 'Rp 0,00'}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <button
+                        onClick={() => setSelectedStoreId(store.storeId)}
+                        className={`px-3 py-1 rounded-md text-xs font-medium ${
+                          selectedStoreId === store.storeId
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                        }`}
+                        data-testid={`select-store-${store.storeId}`}
+                      >
+                        {selectedStoreId === store.storeId ? 'Dipilih' : 'Pilih'}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={3} className="px-6 py-4 text-center text-gray-500">
+                    Tidak ada data store
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* Transaction section */}
-      <div className="bg-white rounded-t-3xl -mt-4 relative z-20 px-4 pt-6 pb-6">
-        {/* Section header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Mutasi Keuangan</h2>
-          <div className="flex gap-2">
-            <Search className="h-5 w-5 text-gray-400" />
-            <Filter className="h-5 w-5 text-gray-400" />
-          </div>
-        </div>
-
-        {/* Month tabs */}
-        <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1">
-          {months.map((month) => (
-            <button
-              key={month.key}
-              onClick={() => setSelectedMonth(month.key)}
-              className={`flex-1 py-2 px-2 rounded-md text-xs font-medium transition-colors ${
-                selectedMonth === month.key
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-              data-testid={`month-tab-${month.key}`}
-            >
-              {month.label}
-            </button>
-          ))}
-          <button className="px-2 py-2 rounded-md">
-            <Calendar className="h-3 w-3 text-gray-600" />
-          </button>
-        </div>
-
-        {/* Transactions */}
-        <div className="space-y-4">
-          {isLoadingTransactions ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <Skeleton className="h-10 w-10 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-1/2" />
-                  </div>
-                  <Skeleton className="h-5 w-20" />
-                </div>
+      {/* Selected Store Transactions */}
+      {selectedStore && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Transaksi - {selectedStore.storeName}
+            </h2>
+            <div className="flex gap-2">
+              {months.map((month) => (
+                <button
+                  key={month.key}
+                  onClick={() => setSelectedMonth(month.key)}
+                  className={`px-3 py-1 rounded-md text-sm font-medium ${
+                    selectedMonth === month.key
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                  }`}
+                  data-testid={`month-tab-${month.key}`}
+                >
+                  {month.label}
+                </button>
               ))}
             </div>
-          ) : Object.keys(groupedTransactions).length > 0 ? (
-            Object.entries(groupedTransactions).map(([date, dayTransactions]) => (
-              <div key={date}>
-                <div className="text-xs font-medium text-gray-500 mb-2 uppercase">{date}</div>
-                <div className="space-y-3">
-                  {dayTransactions.map((transaction) => (
-                    <div 
-                      key={transaction.id} 
-                      className="flex items-center gap-3 py-1"
-                      data-testid={`transaction-${transaction.id}`}
-                    >
-                      {getTransactionIcon(transaction.type, transaction.category)}
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 text-sm">
-                          {getTransactionTitle(transaction.type, transaction.category)}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tanggal
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Jenis Transaksi
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Keterangan
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Jumlah
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {isLoadingTransactions ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Skeleton className="h-4 w-20" />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Skeleton className="h-4 w-32" />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Skeleton className="h-4 w-40" />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Skeleton className="h-4 w-24" />
+                      </td>
+                    </tr>
+                  ))
+                ) : filteredTransactions && filteredTransactions.length > 0 ? (
+                  filteredTransactions.map((transaction) => (
+                    <tr key={transaction.id} className="hover:bg-gray-50" data-testid={`transaction-${transaction.id}`}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {format(new Date(transaction.date), 'dd/MM/yyyy')}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div className="flex items-center gap-2">
+                          {getTransactionIcon(transaction.type, transaction.category)}
+                          <span>{getTransactionTitle(transaction.type, transaction.category)}</span>
                         </div>
-                        <div className="text-xs text-gray-500 mt-0.5 truncate">
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <div className="max-w-xs truncate">
                           {transaction.description || transaction.type}
                         </div>
-                      </div>
-                      
-                      <div className="text-right">
-                        <div className={`font-semibold text-sm ${
-                          transaction.category === 'Income' ? 'text-green-600' : 'text-red-600'
-                        }`}>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <span className={transaction.category === 'Income' ? 'text-green-600' : 'text-red-600'}>
                           {transaction.category === 'Income' ? '+' : '-'}{formatCurrency(transaction.amount)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              <Wallet className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Tidak ada transaksi di bulan {months.find(m => m.key === selectedMonth)?.label}</p>
-              <p className="text-xs mt-1">Transaksi akan muncul di sini</p>
-            </div>
-          )}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                      <Wallet className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>Tidak ada transaksi di bulan {months.find(m => m.key === selectedMonth)?.label}</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
