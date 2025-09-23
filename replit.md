@@ -36,6 +36,7 @@ Uses PostgreSQL with Drizzle ORM for type-safe database operations:
 - **Schema**: Relational design with users, stores, attendance, sales, cashflow, payroll, and proposals tables
 - **Multi-tenancy**: Store-based data isolation with storeId foreign keys
 - **Migrations**: Drizzle Kit for schema management and migrations
+- **Cloud Database**: Aiven PostgreSQL 17.6 for production-grade hosting
 
 ## Role-Based Access Control
 Three-tier role system with different permissions:
@@ -55,8 +56,9 @@ Monorepo structure with shared types and utilities:
 # External Dependencies
 
 ## Database
-- **PostgreSQL**: Primary database with Neon serverless hosting support
+- **PostgreSQL**: Primary database with Aiven cloud hosting (PostgreSQL 17.6)
 - **Drizzle ORM**: Type-safe database toolkit with migration support
+- **Aiven Configuration**: Managed PostgreSQL with SSL encryption and automated backups
 
 ## Authentication & Security  
 - **Passport.js**: Authentication middleware with local strategy
@@ -79,3 +81,49 @@ Monorepo structure with shared types and utilities:
 - **esbuild**: Fast JavaScript bundler for server compilation
 - **TypeScript**: Static type checking across the entire application
 - **Replit Plugins**: Development banner and error overlay for Replit environment
+
+# Aiven Database Configuration
+
+## Cloud Database Setup
+This project uses **Aiven PostgreSQL** as the production cloud database to ensure data persistence across deployments.
+
+### Database Details:
+- **Provider**: Aiven PostgreSQL
+- **Version**: PostgreSQL 17.6
+- **SSL**: Required with certificate validation
+- **Connection**: Via DATABASE_URL environment variable
+
+### Migration to Other Platforms:
+To migrate this application to other AI/deployment platforms:
+
+1. **Environment Variable Required**:
+   ```
+   DATABASE_URL=postgresql://avnadmin:PASSWORD@HOST:PORT/defaultdb?sslmode=require
+   ```
+
+2. **SSL Configuration**:
+   - Aiven requires SSL connections
+   - For development: Use `NODE_TLS_REJECT_UNAUTHORIZED=0` if needed
+   - For production: Configure proper SSL certificates
+
+3. **Schema Migration**:
+   ```bash
+   npm run db:push --force
+   ```
+
+4. **Database Schema**:
+   - 18 tables: attendance, cashflow, customers, inventory, etc.
+   - All schemas defined in `shared/schema.ts`
+   - Auto-generated UUIDs for primary keys
+
+### Platform Independence:
+- ✅ Database persists independently of deployment platform
+- ✅ No vendor lock-in - portable across any platform
+- ✅ Automated backups and high availability from Aiven
+- ✅ SSL encryption for secure connections
+
+### Required Configuration Files:
+- `drizzle.config.ts`: Database connection configuration
+- `shared/schema.ts`: Complete database schema definitions
+- `api/core/config.py`: Python backend database configuration (if used)
+- Environment: `DATABASE_URL` secret/environment variable
