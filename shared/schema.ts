@@ -417,8 +417,111 @@ export type InsertWallet = z.infer<typeof insertWalletSchema>;
 export type PayrollConfig = typeof payrollConfig.$inferSelect;
 export type InsertPayrollConfig = z.infer<typeof insertPayrollConfigSchema>;
 
+// Suppliers table
+export const suppliers = pgTable("suppliers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  contactPerson: text("contact_person"),
+  phone: text("phone"),
+  email: text("email"),
+  address: text("address"),
+  description: text("description"),
+  status: text("status").default("active"), // 'active', 'inactive'
+  storeId: integer("store_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Products table
+export const products = pgTable("products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  sku: text("sku"), // Stock Keeping Unit
+  category: text("category"),
+  unit: text("unit").notNull(), // 'pieces', 'liters', 'kg', 'boxes', etc.
+  buyingPrice: decimal("buying_price", { precision: 12, scale: 2 }),
+  sellingPrice: decimal("selling_price", { precision: 12, scale: 2 }),
+  supplierId: varchar("supplier_id"),
+  status: text("status").default("active"), // 'active', 'inactive'
+  storeId: integer("store_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Inventory table (current stock levels)
+export const inventory = pgTable("inventory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").notNull(),
+  storeId: integer("store_id").notNull(),
+  currentStock: decimal("current_stock", { precision: 10, scale: 3 }).default("0"),
+  minimumStock: decimal("minimum_stock", { precision: 10, scale: 3 }).default("0"),
+  maximumStock: decimal("maximum_stock", { precision: 10, scale: 3 }),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Inventory transactions table (stock movement history)
+export const inventoryTransactions = pgTable("inventory_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").notNull(),
+  storeId: integer("store_id").notNull(),
+  type: text("type").notNull(), // 'in' (stock masuk), 'out' (stock keluar), 'adjustment' (penyesuaian)
+  quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
+  referenceType: text("reference_type"), // 'purchase' (pembelian), 'sale' (penjualan), 'adjustment' (penyesuaian), 'return' (retur)
+  referenceId: varchar("reference_id"), // ID of related transaction if any
+  notes: text("notes"),
+  userId: varchar("user_id").notNull(), // Who performed the transaction
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Insert schemas for new tables
+export const insertSupplierSchema = createInsertSchema(suppliers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertProductSchema = createInsertSchema(products).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertInventorySchema = createInsertSchema(inventory).omit({
+  id: true,
+  createdAt: true,
+  lastUpdated: true,
+});
+
+export const insertInventoryTransactionSchema = createInsertSchema(inventoryTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Extended types with related data
 export type AttendanceWithEmployee = Attendance & {
   employeeName: string;
   employeeRole: string;
+};
+
+// New types for inventory management
+export type Supplier = typeof suppliers.$inferSelect;
+export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
+export type Product = typeof products.$inferSelect;
+export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type Inventory = typeof inventory.$inferSelect;
+export type InsertInventory = z.infer<typeof insertInventorySchema>;
+export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
+export type InsertInventoryTransaction = z.infer<typeof insertInventoryTransactionSchema>;
+
+// Extended types with related data for inventory
+export type ProductWithSupplier = Product & {
+  supplier?: Supplier;
+};
+
+export type InventoryWithProduct = Inventory & {
+  product: Product;
+  supplier?: Supplier;
+};
+
+export type InventoryTransactionWithProduct = InventoryTransaction & {
+  product: Product;
+  user?: User;
 };
