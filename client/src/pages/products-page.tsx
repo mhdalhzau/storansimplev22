@@ -148,10 +148,16 @@ export default function ProductsPage() {
   };
 
   const handleSubmit = (data: InsertProduct) => {
+    // Convert "none" back to empty string for the supplier field
+    const processedData = {
+      ...data,
+      supplierId: data.supplierId === "none" ? "" : data.supplierId
+    };
+    
     if (editingProduct) {
-      updateProductMutation.mutate({ id: editingProduct.id, data });
+      updateProductMutation.mutate({ id: editingProduct.id, data: processedData });
     } else {
-      createProductMutation.mutate(data);
+      createProductMutation.mutate(processedData);
     }
   };
 
@@ -306,7 +312,7 @@ export default function ProductsPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">No supplier</SelectItem>
+                            <SelectItem value="none">No supplier</SelectItem>
                             {suppliers.map((supplier) => (
                               <SelectItem key={supplier.id} value={supplier.id}>
                                 {supplier.name}
