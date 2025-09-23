@@ -12,6 +12,9 @@ import OvertimeContent from "@/components/overtime/overtime-content";
 import EmployeeListPage from "@/pages/attendance/employee-list";
 import CustomerPage from "@/pages/customer-page";
 import PiutangPage from "@/pages/piutang-page";
+import ProductsPage from "@/pages/products-page";
+import SuppliersPage from "@/pages/suppliers-page";
+import InventoryPage from "@/pages/inventory-page";
 import SettingsContent from "@/components/settings/settings-content";
 
 export default function HomePage() {
@@ -36,6 +39,12 @@ export default function HomePage() {
         return <CustomerPage />;
       case "piutang":
         return <PiutangPage />;
+      case "suppliers":
+        return <SuppliersPage />;
+      case "products":
+        return <ProductsPage />;
+      case "inventory":
+        return <InventoryPage />;
       case "payroll":
         return <PayrollContent />;
       case "proposal":
