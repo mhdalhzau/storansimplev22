@@ -13,6 +13,9 @@ if (!databaseUrl) {
 
 export const pool = new Pool({ 
   connectionString: databaseUrl,
-  ssl: { rejectUnauthorized: false }
+  ssl: process.env.AIVEN_CA_CERT ? {
+    rejectUnauthorized: true,
+    ca: process.env.AIVEN_CA_CERT
+  } : { rejectUnauthorized: false }
 });
 export const db = drizzle(pool, { schema });

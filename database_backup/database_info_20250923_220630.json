@@ -1,0 +1,49 @@
+{
+  "backup_date": "2025-09-23T22:06:30Z",
+  "database_type": "Aiven PostgreSQL",
+  "version": "PostgreSQL 17.6",
+  "ssl_required": true,
+  "ca_certificate_configured": true,
+  "environment_variables": {
+    "required": "AIVEN_DATABASE_URL",
+    "ssl_ca": "AIVEN_CA_CERT"
+  },
+  "connection_config": {
+    "ssl_mode": "require",
+    "certificate_verification": true,
+    "reject_unauthorized": true
+  },
+  "application_info": {
+    "name": "SPBU Business Management System",
+    "type": "Gas Station Management Application",
+    "frontend": "React + Vite",
+    "backend": "Express + Node.js",
+    "orm": "Drizzle ORM",
+    "auth": "Passport.js with sessions"
+  },
+  "schema_modules": [
+    "users",
+    "stores", 
+    "userStores",
+    "attendance",
+    "sales",
+    "cashflow",
+    "payroll",
+    "proposals", 
+    "overtime",
+    "setoran",
+    "customers",
+    "piutang",
+    "wallets",
+    "payrollConfig",
+    "suppliers",
+    "products",
+    "inventory",
+    "inventoryTransactions"
+  ],
+  "security_notes": {
+    "ca_certificate": "Custom Aiven CA certificate required for SSL verification",
+    "no_fallback_databases": "Application configured to ONLY use AIVEN_DATABASE_URL",
+    "session_storage": "PostgreSQL session store using connect-pg-simple"
+  }
+}

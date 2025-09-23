@@ -13,6 +13,9 @@ export default defineConfig({
   dialect: "postgresql",
   dbCredentials: {
     url: databaseUrl,
-    ssl: { rejectUnauthorized: false },
+    ssl: process.env.AIVEN_CA_CERT ? {
+      rejectUnauthorized: true,
+      ca: process.env.AIVEN_CA_CERT
+    } : { rejectUnauthorized: false },
   },
 });
