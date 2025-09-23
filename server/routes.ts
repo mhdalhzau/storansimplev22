@@ -16,7 +16,11 @@ import {
   insertSetoranSchema,
   insertSalesSchema,
   insertCustomerSchema,
-  insertPiutangSchema
+  insertPiutangSchema,
+  insertSupplierSchema,
+  insertProductSchema,
+  insertInventorySchema,
+  insertInventoryTransactionSchema
 } from "@shared/schema";
 import { calculateShiftOvertime, formatOvertimeDuration, detectShiftFromTime } from "@shared/overtime-utils";
 import { z } from "zod";
@@ -3980,6 +3984,363 @@ export function registerRoutes(app: Express): Server {
       }
     } catch (error: any) {
       res.status(500).json({ message: "Internal server error", details: error.message });
+    }
+  });
+
+  // Supplier routes
+  app.get("/api/suppliers", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      let suppliers;
+      if (req.user.role === 'administrasi') {
+        suppliers = await storage.getAllSuppliers();
+      } else {
+        const targetStoreId = await getUserFirstStoreId(req.user);
+        if (!targetStoreId) {
+          return res.status(400).json({ message: "No store access found for user" });
+        }
+        suppliers = await storage.getSuppliersByStore(targetStoreId);
+      }
+      
+      res.json(suppliers);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/suppliers", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      if (!['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const targetStoreId = req.body.storeId || await getUserFirstStoreId(req.user);
+      if (!targetStoreId) {
+        return res.status(400).json({ message: "Store ID is required" });
+      }
+      
+      if (!(await hasStoreAccess(req.user, targetStoreId))) {
+        return res.status(403).json({ message: "You don't have access to this store" });
+      }
+      
+      const data = insertSupplierSchema.parse({
+        ...req.body,
+        storeId: targetStoreId,
+      });
+      
+      const supplier = await storage.createSupplier(data);
+      res.status(201).json(supplier);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/suppliers/:id", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      if (!['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const existingSupplier = await storage.getSupplier(req.params.id);
+      if (!existingSupplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+      
+      if (!(await hasStoreAccess(req.user, existingSupplier.storeId))) {
+        return res.status(403).json({ message: "You don't have access to this supplier" });
+      }
+      
+      const data = insertSupplierSchema.partial().parse(req.body);
+      const supplier = await storage.updateSupplier(req.params.id, data);
+      
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+      
+      res.json(supplier);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/suppliers/:id", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      if (!['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const existingSupplier = await storage.getSupplier(req.params.id);
+      if (!existingSupplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+      
+      if (!(await hasStoreAccess(req.user, existingSupplier.storeId))) {
+        return res.status(403).json({ message: "You don't have access to this supplier" });
+      }
+      
+      await storage.deleteSupplier(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/suppliers/search", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      const { query: searchQuery, storeId } = req.query;
+      const targetStoreId = storeId ? parseInt(storeId as string) : await getUserFirstStoreId(req.user);
+      
+      if (!targetStoreId) {
+        return res.status(400).json({ message: "Store ID is required" });
+      }
+      
+      if (!(await hasStoreAccess(req.user, targetStoreId))) {
+        return res.status(403).json({ message: "You don't have access to this store" });
+      }
+      
+      const suppliers = await storage.searchSuppliers(targetStoreId, searchQuery as string || "");
+      res.json(suppliers);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Product routes
+  app.get("/api/products", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      let products;
+      if (req.user.role === 'administrasi') {
+        products = await storage.getAllProducts();
+      } else {
+        const targetStoreId = await getUserFirstStoreId(req.user);
+        if (!targetStoreId) {
+          return res.status(400).json({ message: "No store access found for user" });
+        }
+        products = await storage.getProductsByStore(targetStoreId);
+      }
+      
+      res.json(products);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/products", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      if (!['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const targetStoreId = req.body.storeId || await getUserFirstStoreId(req.user);
+      if (!targetStoreId) {
+        return res.status(400).json({ message: "Store ID is required" });
+      }
+      
+      if (!(await hasStoreAccess(req.user, targetStoreId))) {
+        return res.status(403).json({ message: "You don't have access to this store" });
+      }
+      
+      const data = insertProductSchema.parse({
+        ...req.body,
+        storeId: targetStoreId,
+      });
+      
+      const product = await storage.createProduct(data);
+      res.status(201).json(product);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/products/:id", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      if (!['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const existingProduct = await storage.getProduct(req.params.id);
+      if (!existingProduct) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      if (!(await hasStoreAccess(req.user, existingProduct.storeId))) {
+        return res.status(403).json({ message: "You don't have access to this product" });
+      }
+      
+      const data = insertProductSchema.partial().parse(req.body);
+      const product = await storage.updateProduct(req.params.id, data);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      res.json(product);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/products/:id", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      if (!['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const existingProduct = await storage.getProduct(req.params.id);
+      if (!existingProduct) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      if (!(await hasStoreAccess(req.user, existingProduct.storeId))) {
+        return res.status(403).json({ message: "You don't have access to this product" });
+      }
+      
+      await storage.deleteProduct(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/products/search", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      const { query: searchQuery, storeId } = req.query;
+      const targetStoreId = storeId ? parseInt(storeId as string) : await getUserFirstStoreId(req.user);
+      
+      if (!targetStoreId) {
+        return res.status(400).json({ message: "Store ID is required" });
+      }
+      
+      if (!(await hasStoreAccess(req.user, targetStoreId))) {
+        return res.status(403).json({ message: "You don't have access to this store" });
+      }
+      
+      const products = await storage.searchProducts(targetStoreId, searchQuery as string || "");
+      res.json(products);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Inventory routes
+  app.get("/api/inventory", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      const targetStoreId = await getUserFirstStoreId(req.user);
+      if (!targetStoreId) {
+        return res.status(400).json({ message: "No store access found for user" });
+      }
+      
+      const inventory = await storage.getInventoryByStore(targetStoreId);
+      res.json(inventory);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/inventory/:id", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      if (!['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const existingInventory = await storage.getInventory(req.params.id);
+      if (!existingInventory) {
+        return res.status(404).json({ message: "Inventory not found" });
+      }
+      
+      if (!(await hasStoreAccess(req.user, existingInventory.storeId))) {
+        return res.status(403).json({ message: "You don't have access to this inventory" });
+      }
+      
+      const data = insertInventorySchema.partial().parse(req.body);
+      const inventory = await storage.updateInventory(req.params.id, data);
+      
+      if (!inventory) {
+        return res.status(404).json({ message: "Inventory not found" });
+      }
+      
+      res.json(inventory);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Inventory transaction routes
+  app.get("/api/inventory-transactions", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      const { productId } = req.query;
+      let transactions;
+      
+      if (productId) {
+        // Get transactions for specific product
+        transactions = await storage.getInventoryTransactionsByProduct(productId as string);
+      } else {
+        // Get all transactions for user's store
+        const targetStoreId = await getUserFirstStoreId(req.user);
+        if (!targetStoreId) {
+          return res.status(400).json({ message: "No store access found for user" });
+        }
+        transactions = await storage.getInventoryTransactionsByStore(targetStoreId);
+      }
+      
+      res.json(transactions);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/inventory-transactions", async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      if (!['manager', 'administrasi'].includes(req.user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const targetStoreId = req.body.storeId || await getUserFirstStoreId(req.user);
+      if (!targetStoreId) {
+        return res.status(400).json({ message: "Store ID is required" });
+      }
+      
+      if (!(await hasStoreAccess(req.user, targetStoreId))) {
+        return res.status(403).json({ message: "You don't have access to this store" });
+      }
+      
+      const data = insertInventoryTransactionSchema.parse({
+        ...req.body,
+        storeId: targetStoreId,
+        userId: req.user.id,
+      });
+      
+      const transaction = await storage.createInventoryTransaction(data);
+      res.status(201).json(transaction);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
     }
   });
 
