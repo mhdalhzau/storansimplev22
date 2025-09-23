@@ -60,8 +60,8 @@ BCRYPT_SALT_ROUNDS=12
 # Environment
 NODE_ENV=production
 
-# SSL Configuration untuk Aiven
-NODE_TLS_REJECT_UNAUTHORIZED=0
+# NOTE: SSL verification is ENABLED for security
+# CA certificate provided via AIVEN_CA_CERT environment variable
 
 # Application URL (set automatically oleh Netlify)
 # NETLIFY_URL=https://your-app.netlify.app (auto-generated)
@@ -102,15 +102,15 @@ MAX_REQUEST_SIZE=50mb
 
 | Key | Value | Notes |
 |-----|-------|-------|
-| `SESSION_SECRET` | Random 32+ character string | Generate dengan: `openssl rand -hex 32` |
-| `JWT_SECRET` | Random string | Generate dengan: `openssl rand -base64 32` |
+| `SESSION_SECRET` | Random 32+ character string | **REQUIRED** - Generate dengan: `openssl rand -hex 32` |
+| `JWT_SECRET` | Random string | **OPTIONAL** - Generate dengan: `openssl rand -base64 32` |
 
 **Environment Variables:**
 
 | Key | Value | Notes |
 |-----|-------|-------|
 | `NODE_ENV` | `production` | Set environment mode |
-| `NODE_TLS_REJECT_UNAUTHORIZED` | `0` | Allow Aiven SSL connections |
+| `AIVEN_CA_CERT` | Certificate content | **REQUIRED** for secure SSL connections |
 
 ### Step 3: Verify Configuration
 

@@ -1,9 +1,9 @@
 [build]
   # Build command untuk frontend
-  command = "cd client && npm install && npm run build"
+  command = "npm run build:netlify"
   
-  # Publish directory (hasil build React)
-  publish = "client/build"
+  # Publish directory (hasil build Vite)
+  publish = "dist/public"
   
   # Functions directory
   functions = "netlify/functions"
@@ -48,13 +48,13 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# Headers untuk API responses
+# Headers untuk API responses (same-origin requests via redirects)
 [[headers]]
-  for = "/api/*"
+  for = "/.netlify/functions/*"
   [headers.values]
-    Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
     Access-Control-Allow-Headers = "Content-Type, Authorization"
+    Access-Control-Allow-Credentials = "true"
 
 # Production context
 [context.production]
