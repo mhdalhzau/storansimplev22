@@ -91,14 +91,14 @@ This project uses **Aiven PostgreSQL** as the production cloud database to ensur
 - **Provider**: Aiven PostgreSQL
 - **Version**: PostgreSQL 17.6
 - **SSL**: Required with certificate validation
-- **Connection**: Via DATABASE_URL environment variable
+- **Connection**: Via AIVEN_DATABASE_URL environment variable (Aiven PostgreSQL only)
 
 ### Migration to Other Platforms:
 To migrate this application to other AI/deployment platforms:
 
 1. **Environment Variable Required**:
    ```
-   DATABASE_URL=postgresql://avnadmin:PASSWORD@HOST:PORT/defaultdb?sslmode=require
+   AIVEN_DATABASE_URL=postgresql://avnadmin:PASSWORD@HOST:PORT/defaultdb?sslmode=require
    ```
 
 2. **SSL Configuration**:
@@ -126,4 +126,4 @@ To migrate this application to other AI/deployment platforms:
 - `drizzle.config.ts`: Database connection configuration
 - `shared/schema.ts`: Complete database schema definitions
 - `api/core/config.py`: Python backend database configuration (if used)
-- Environment: `DATABASE_URL` secret/environment variable
+- Environment: `AIVEN_DATABASE_URL` secret/environment variable (Aiven PostgreSQL required)
