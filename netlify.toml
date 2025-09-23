@@ -1,0 +1,67 @@
+[build]
+  # Build command untuk frontend
+  command = "cd client && npm install && npm run build"
+  
+  # Publish directory (hasil build React)
+  publish = "client/build"
+  
+  # Functions directory
+  functions = "netlify/functions"
+
+[build.environment]
+  # Node.js version
+  NODE_VERSION = "20"
+  
+  # Disable telemetry untuk build yang lebih cepat
+  NEXT_TELEMETRY_DISABLED = "1"
+
+[functions]
+  # External node modules yang perlu dibundle
+  external_node_modules = ["express", "pg", "drizzle-orm", "passport", "passport-local", "express-session", "connect-pg-simple"]
+  
+  # Node bundler untuk functions
+  node_bundler = "esbuild"
+  
+  # Include files di functions
+  included_files = ["shared/**", "server/**"]
+
+# Redirects dan rewrites
+[[redirects]]
+  # Redirect semua API calls ke function
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+# Handle React Router (SPA routing)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Headers untuk security
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Headers untuk API responses
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+
+# Production context
+[context.production]
+  [context.production.environment]
+    NODE_ENV = "production"
+
+# Deploy preview context
+[context.deploy-preview]
+  [context.deploy-preview.environment]
+    NODE_ENV = "staging"
