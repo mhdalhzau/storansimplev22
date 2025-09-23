@@ -28,6 +28,17 @@ import {
   type InsertWallet,
   type PayrollConfig,
   type InsertPayrollConfig,
+  type Supplier,
+  type InsertSupplier,
+  type Product,
+  type InsertProduct,
+  type ProductWithSupplier,
+  type Inventory,
+  type InsertInventory,
+  type InventoryWithProduct,
+  type InventoryTransaction,
+  type InsertInventoryTransaction,
+  type InventoryTransactionWithProduct,
   TRANSACTION_TYPES
 } from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -144,6 +155,39 @@ export interface IStorage {
   getPayrollConfig(): Promise<PayrollConfig | undefined>;
   createOrUpdatePayrollConfig(config: InsertPayrollConfig): Promise<PayrollConfig>;
   
+  // Supplier methods
+  getSupplier(id: string): Promise<Supplier | undefined>;
+  getSuppliersByStore(storeId: number): Promise<Supplier[]>;
+  getAllSuppliers(): Promise<Supplier[]>;
+  createSupplier(supplier: InsertSupplier): Promise<Supplier>;
+  updateSupplier(id: string, data: Partial<InsertSupplier>): Promise<Supplier | undefined>;
+  deleteSupplier(id: string): Promise<void>;
+  searchSuppliers(storeId: number, query: string): Promise<Supplier[]>;
+  
+  // Product methods
+  getProduct(id: string): Promise<Product | undefined>;
+  getProductsByStore(storeId: number): Promise<ProductWithSupplier[]>;
+  getProductsBySupplier(supplierId: string): Promise<Product[]>;
+  getAllProducts(): Promise<ProductWithSupplier[]>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: string, data: Partial<InsertProduct>): Promise<Product | undefined>;
+  deleteProduct(id: string): Promise<void>;
+  searchProducts(storeId: number, query: string): Promise<ProductWithSupplier[]>;
+  
+  // Inventory methods
+  getInventory(id: string): Promise<Inventory | undefined>;
+  getInventoryByStore(storeId: number): Promise<InventoryWithProduct[]>;
+  getInventoryByProduct(productId: string): Promise<Inventory | undefined>;
+  createInventory(inventory: InsertInventory): Promise<Inventory>;
+  updateInventory(id: string, data: Partial<InsertInventory>): Promise<Inventory | undefined>;
+  updateInventoryStock(productId: string, newStock: string): Promise<Inventory | undefined>;
+  
+  // Inventory Transaction methods
+  getInventoryTransaction(id: string): Promise<InventoryTransaction | undefined>;
+  getInventoryTransactionsByStore(storeId: number): Promise<InventoryTransactionWithProduct[]>;
+  getInventoryTransactionsByProduct(productId: string): Promise<InventoryTransactionWithProduct[]>;
+  createInventoryTransaction(transaction: InsertInventoryTransaction): Promise<InventoryTransaction>;
+  
   sessionStore: SessionStore;
 }
 
@@ -162,6 +206,10 @@ export class MemStorage implements IStorage {
   private piutangRecords: Map<string, Piutang>;
   private walletRecords: Map<string, Wallet>;
   private payrollConfigRecords: Map<string, PayrollConfig>;
+  private supplierRecords: Map<string, Supplier>;
+  private productRecords: Map<string, Product>;
+  private inventoryRecords: Map<string, Inventory>;
+  private inventoryTransactionRecords: Map<string, InventoryTransaction>;
   public sessionStore: SessionStore;
 
   constructor() {
@@ -179,6 +227,10 @@ export class MemStorage implements IStorage {
     this.piutangRecords = new Map();
     this.walletRecords = new Map();
     this.payrollConfigRecords = new Map();
+    this.supplierRecords = new Map();
+    this.productRecords = new Map();
+    this.inventoryRecords = new Map();
+    this.inventoryTransactionRecords = new Map();
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000,
@@ -1623,6 +1675,324 @@ export class MemStorage implements IStorage {
     
     this.payrollConfigRecords.set(id, config);
     return config;
+  }
+
+  // Supplier methods
+  async getSupplier(id: string): Promise<Supplier | undefined> {
+    return this.supplierRecords.get(id);
+  }
+
+  async getSuppliersByStore(storeId: number): Promise<Supplier[]> {
+    return Array.from(this.supplierRecords.values()).filter(
+      (supplier) => supplier.storeId === storeId && supplier.status === "active"
+    );
+  }
+
+  async getAllSuppliers(): Promise<Supplier[]> {
+    return Array.from(this.supplierRecords.values()).filter(
+      (supplier) => supplier.status === "active"
+    );
+  }
+
+  async createSupplier(insertSupplier: InsertSupplier): Promise<Supplier> {
+    const id = randomUUID();
+    const supplier: Supplier = {
+      ...insertSupplier,
+      id,
+      contactPerson: insertSupplier.contactPerson ?? null,
+      phone: insertSupplier.phone ?? null,
+      email: insertSupplier.email ?? null,
+      address: insertSupplier.address ?? null,
+      description: insertSupplier.description ?? null,
+      status: insertSupplier.status ?? "active",
+      createdAt: new Date(),
+    };
+    this.supplierRecords.set(id, supplier);
+    return supplier;
+  }
+
+  async updateSupplier(id: string, data: Partial<InsertSupplier>): Promise<Supplier | undefined> {
+    const supplier = this.supplierRecords.get(id);
+    if (supplier) {
+      const updated = { ...supplier, ...data };
+      this.supplierRecords.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  async deleteSupplier(id: string): Promise<void> {
+    const supplier = this.supplierRecords.get(id);
+    if (supplier) {
+      const updated = { ...supplier, status: "inactive" };
+      this.supplierRecords.set(id, updated);
+    }
+  }
+
+  async searchSuppliers(storeId: number, query: string): Promise<Supplier[]> {
+    return Array.from(this.supplierRecords.values()).filter(
+      (supplier) =>
+        supplier.storeId === storeId &&
+        supplier.status === "active" &&
+        (supplier.name.toLowerCase().includes(query.toLowerCase()) ||
+          supplier.contactPerson?.toLowerCase().includes(query.toLowerCase()) ||
+          supplier.phone?.includes(query) ||
+          supplier.email?.toLowerCase().includes(query.toLowerCase()))
+    );
+  }
+
+  // Product methods
+  async getProduct(id: string): Promise<Product | undefined> {
+    return this.productRecords.get(id);
+  }
+
+  async getProductsByStore(storeId: number): Promise<ProductWithSupplier[]> {
+    const products = Array.from(this.productRecords.values()).filter(
+      (product) => product.storeId === storeId && product.status === "active"
+    );
+    
+    const productsWithSupplier = [];
+    for (const product of products) {
+      const supplier = product.supplierId ? await this.getSupplier(product.supplierId) : undefined;
+      productsWithSupplier.push({ ...product, supplier });
+    }
+    return productsWithSupplier;
+  }
+
+  async getProductsBySupplier(supplierId: string): Promise<Product[]> {
+    return Array.from(this.productRecords.values()).filter(
+      (product) => product.supplierId === supplierId && product.status === "active"
+    );
+  }
+
+  async getAllProducts(): Promise<ProductWithSupplier[]> {
+    const products = Array.from(this.productRecords.values()).filter(
+      (product) => product.status === "active"
+    );
+    
+    const productsWithSupplier = [];
+    for (const product of products) {
+      const supplier = product.supplierId ? await this.getSupplier(product.supplierId) : undefined;
+      productsWithSupplier.push({ ...product, supplier });
+    }
+    return productsWithSupplier;
+  }
+
+  async createProduct(insertProduct: InsertProduct): Promise<Product> {
+    const id = randomUUID();
+    const product: Product = {
+      ...insertProduct,
+      id,
+      description: insertProduct.description ?? null,
+      sku: insertProduct.sku ?? null,
+      category: insertProduct.category ?? null,
+      buyingPrice: insertProduct.buyingPrice ?? null,
+      sellingPrice: insertProduct.sellingPrice ?? null,
+      supplierId: insertProduct.supplierId ?? null,
+      status: insertProduct.status ?? "active",
+      createdAt: new Date(),
+    };
+    this.productRecords.set(id, product);
+
+    // Create initial inventory record
+    await this.createInventory({
+      productId: id,
+      storeId: product.storeId,
+      currentStock: "0",
+      minimumStock: "0",
+      maximumStock: null,
+    });
+
+    return product;
+  }
+
+  async updateProduct(id: string, data: Partial<InsertProduct>): Promise<Product | undefined> {
+    const product = this.productRecords.get(id);
+    if (product) {
+      const updated = { ...product, ...data };
+      this.productRecords.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  async deleteProduct(id: string): Promise<void> {
+    const product = this.productRecords.get(id);
+    if (product) {
+      const updated = { ...product, status: "inactive" };
+      this.productRecords.set(id, updated);
+    }
+  }
+
+  async searchProducts(storeId: number, query: string): Promise<ProductWithSupplier[]> {
+    const products = Array.from(this.productRecords.values()).filter(
+      (product) =>
+        product.storeId === storeId &&
+        product.status === "active" &&
+        (product.name.toLowerCase().includes(query.toLowerCase()) ||
+          product.description?.toLowerCase().includes(query.toLowerCase()) ||
+          product.sku?.toLowerCase().includes(query.toLowerCase()) ||
+          product.category?.toLowerCase().includes(query.toLowerCase()))
+    );
+    
+    const productsWithSupplier = [];
+    for (const product of products) {
+      const supplier = product.supplierId ? await this.getSupplier(product.supplierId) : undefined;
+      productsWithSupplier.push({ ...product, supplier });
+    }
+    return productsWithSupplier;
+  }
+
+  // Inventory methods
+  async getInventory(id: string): Promise<Inventory | undefined> {
+    return this.inventoryRecords.get(id);
+  }
+
+  async getInventoryByStore(storeId: number): Promise<InventoryWithProduct[]> {
+    const inventoryRecords = Array.from(this.inventoryRecords.values()).filter(
+      (inventory) => inventory.storeId === storeId
+    );
+    
+    const inventoryWithProducts = [];
+    for (const inventory of inventoryRecords) {
+      const product = await this.getProduct(inventory.productId);
+      if (product) {
+        const supplier = product.supplierId ? await this.getSupplier(product.supplierId) : undefined;
+        inventoryWithProducts.push({ 
+          ...inventory, 
+          product: { ...product, supplier } 
+        });
+      }
+    }
+    return inventoryWithProducts;
+  }
+
+  async getInventoryByProduct(productId: string): Promise<Inventory | undefined> {
+    return Array.from(this.inventoryRecords.values()).find(
+      (inventory) => inventory.productId === productId
+    );
+  }
+
+  async createInventory(insertInventory: InsertInventory): Promise<Inventory> {
+    const id = randomUUID();
+    const inventory: Inventory = {
+      ...insertInventory,
+      id,
+      currentStock: insertInventory.currentStock ?? "0",
+      minimumStock: insertInventory.minimumStock ?? "0",
+      maximumStock: insertInventory.maximumStock ?? null,
+      lastUpdated: new Date(),
+      createdAt: new Date(),
+    };
+    this.inventoryRecords.set(id, inventory);
+    return inventory;
+  }
+
+  async updateInventory(id: string, data: Partial<InsertInventory>): Promise<Inventory | undefined> {
+    const inventory = this.inventoryRecords.get(id);
+    if (inventory) {
+      const updated = { 
+        ...inventory, 
+        ...data, 
+        lastUpdated: new Date() 
+      };
+      this.inventoryRecords.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  async updateInventoryStock(productId: string, newStock: string): Promise<Inventory | undefined> {
+    const inventory = await this.getInventoryByProduct(productId);
+    if (inventory) {
+      const updated = { 
+        ...inventory, 
+        currentStock: newStock, 
+        lastUpdated: new Date() 
+      };
+      this.inventoryRecords.set(inventory.id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  // Inventory Transaction methods
+  async getInventoryTransaction(id: string): Promise<InventoryTransaction | undefined> {
+    return this.inventoryTransactionRecords.get(id);
+  }
+
+  async getInventoryTransactionsByStore(storeId: number): Promise<InventoryTransactionWithProduct[]> {
+    const transactions = Array.from(this.inventoryTransactionRecords.values()).filter(
+      (transaction) => transaction.storeId === storeId
+    );
+    
+    const transactionsWithProducts = [];
+    for (const transaction of transactions) {
+      const product = await this.getProduct(transaction.productId);
+      const user = await this.getUser(transaction.userId);
+      if (product) {
+        transactionsWithProducts.push({ 
+          ...transaction, 
+          product,
+          user 
+        });
+      }
+    }
+    return transactionsWithProducts;
+  }
+
+  async getInventoryTransactionsByProduct(productId: string): Promise<InventoryTransactionWithProduct[]> {
+    const transactions = Array.from(this.inventoryTransactionRecords.values()).filter(
+      (transaction) => transaction.productId === productId
+    );
+    
+    const transactionsWithProducts = [];
+    for (const transaction of transactions) {
+      const product = await this.getProduct(transaction.productId);
+      const user = await this.getUser(transaction.userId);
+      if (product) {
+        transactionsWithProducts.push({ 
+          ...transaction, 
+          product,
+          user 
+        });
+      }
+    }
+    return transactionsWithProducts;
+  }
+
+  async createInventoryTransaction(insertTransaction: InsertInventoryTransaction): Promise<InventoryTransaction> {
+    const id = randomUUID();
+    const transaction: InventoryTransaction = {
+      ...insertTransaction,
+      id,
+      referenceType: insertTransaction.referenceType ?? null,
+      referenceId: insertTransaction.referenceId ?? null,
+      notes: insertTransaction.notes ?? null,
+      createdAt: new Date(),
+    };
+    
+    this.inventoryTransactionRecords.set(id, transaction);
+
+    // Update inventory stock based on transaction type
+    const currentInventory = await this.getInventoryByProduct(transaction.productId);
+    if (currentInventory) {
+      const currentStock = parseFloat(currentInventory.currentStock);
+      const transactionQty = parseFloat(transaction.quantity);
+      
+      let newStock = currentStock;
+      if (transaction.type === "in") {
+        newStock = currentStock + transactionQty;
+      } else if (transaction.type === "out") {
+        newStock = currentStock - transactionQty;
+      } else if (transaction.type === "adjustment") {
+        newStock = transactionQty; // For adjustments, set to exact amount
+      }
+      
+      await this.updateInventoryStock(transaction.productId, newStock.toString());
+    }
+
+    return transaction;
   }
 }
 
