@@ -1,0 +1,84 @@
+8:53:10 AM: (node:2408) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+8:53:10 AM: (Use `node --trace-warnings ...` to show where the warning was created)
+8:53:10 AM: npm warn exec The following package was not found and will be installed: vite@7.1.7
+8:53:13 AM: Failed during stage 'building site': Build script returned non-zero exit code: 2 (https://ntl.fyi/exit-code-2)
+8:53:12 AM: failed to load config from /opt/build/repo/vite.config.ts
+8:53:12 AM: error during build:
+8:53:12 AM: Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'vite' imported from /opt/build/repo/node_modules/.vite-temp/vite.config.ts.timestamp-1758678792890-621bc1df47de6.mjs
+8:53:12 AM:     at packageResolve (node:internal/modules/esm/resolve:873:9)
+8:53:12 AM:     at moduleResolve (node:internal/modules/esm/resolve:946:18)
+8:53:12 AM:     at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+8:53:12 AM:     at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
+8:53:12 AM:     at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
+8:53:12 AM:     at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
+8:53:12 AM:     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
+8:53:12 AM:     at ModuleJob._link (node:internal/modules/esm/module_job:168:49)
+8:53:13 AM: ​
+8:53:13 AM: "build.command" failed                                        
+8:53:13 AM: ────────────────────────────────────────────────────────────────
+8:53:13 AM: ​
+8:53:13 AM:   Error message
+8:53:13 AM:   Command failed with exit code 1: npm install && npm run build:netlify (https://ntl.fyi/exit-code-1)
+8:53:13 AM: ​
+8:53:13 AM:   Error location
+8:53:13 AM:   In build.command from netlify.toml:
+8:53:13 AM:   npm install && npm run build:netlify
+8:53:13 AM: ​
+8:53:13 AM:   Resolved config
+8:53:13 AM:   build:
+8:53:13 AM:     command: npm install && npm run build:netlify
+8:53:13 AM:     commandOrigin: config
+8:53:13 AM:     environment:
+8:53:13 AM:       - AIVEN_CA_CERT
+8:53:13 AM:       - AIVEN_DATABASE_URL
+8:53:13 AM:       - I7eWAg
+8:53:13 AM:       - JWT_SECRET
+8:53:13 AM:       - NETLIFY_DATABASE_URL
+8:53:13 AM:       - NETLIFY_DATABASE_URL_UNPOOLED
+8:53:13 AM:       - NODE_ENV
+8:53:13 AM:       - NODE_TLS_REJECT_UNAUTHORIZED
+8:53:13 AM:       - SESSION_SECRET
+8:53:13 AM:       - NODE_VERSION
+8:53:13 AM:       - NEXT_TELEMETRY_DISABLED
+8:53:13 AM:     publish: /opt/build/repo/dist/public
+8:53:13 AM:     publishOrigin: config
+8:53:13 AM:   functions:
+8:53:13 AM:     "*":
+8:53:13 AM:       external_node_modules:
+8:53:13 AM:         - express
+8:53:13 AM:         - pg
+8:53:13 AM:         - drizzle-orm
+8:53:13 AM:         - passport
+8:53:13 AM:         - passport-local
+8:53:13 AM:         - express-session
+8:53:13 AM:         - connect-pg-simple
+8:53:13 AM:       included_files:
+8:53:13 AM:         - shared/**
+        - server/**
+      node_bundler: esbuild
+  functionsDirectory: /opt/build/repo/netlify/functions
+  headers:
+    - for: /*
+      values:
+        Referrer-Policy: strict-origin-when-cross-origin
+        X-Content-Type-Options: nosniff
+        X-Frame-Options: DENY
+        X-XSS-Protection: 1; mode=block
+    - for: /.netlify/functions/*
+      values:
+        Access-Control-Allow-Credentials: "true"
+        Access-Control-Allow-Headers: Content-Type, Authorization
+        Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  headersOrigin: config
+  redirects:
+    - force: true
+      from: /api/*
+      status: 200
+      to: /.netlify/functions/api/:splat
+    - from: /*
+      status: 200
+      to: /index.html
+  redirectsOrigin: config
+8:53:13 AM: Build failed due to a user error: Build script returned non-zero exit code: 2
+8:53:13 AM: Failing build: Failed to build site
+8:53:14 AM: Finished processing build request in 58.431s
