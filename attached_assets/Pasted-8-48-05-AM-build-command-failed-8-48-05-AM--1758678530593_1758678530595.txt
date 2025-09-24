@@ -1,0 +1,68 @@
+8:48:05 AM: "build.command" failed                                        
+8:48:05 AM: ────────────────────────────────────────────────────────────────
+8:48:05 AM: ​
+8:48:05 AM:   Error message
+8:48:05 AM:   Command failed with exit code 127: npm install && npm run build:netlify (https://ntl.fyi/exit-code-127)
+8:48:05 AM: ​
+8:48:05 AM:   Error location
+8:48:05 AM:   In build.command from netlify.toml:
+8:48:05 AM:   npm install && npm run build:netlify
+8:48:05 AM: ​
+8:48:05 AM:   Resolved config
+8:48:05 AM:   build:
+8:48:05 AM:     command: npm install && npm run build:netlify
+8:48:05 AM:     commandOrigin: config
+8:48:05 AM:     environment:
+8:48:05 AM:       - AIVEN_CA_CERT
+8:48:05 AM:       - AIVEN_DATABASE_URL
+8:48:05 AM:       - I7eWAg
+8:48:05 AM:       - JWT_SECRET
+8:48:05 AM:       - NETLIFY_DATABASE_URL
+8:48:05 AM:       - NETLIFY_DATABASE_URL_UNPOOLED
+8:48:05 AM:       - NODE_ENV
+8:48:05 AM:       - NODE_TLS_REJECT_UNAUTHORIZED
+8:48:05 AM:       - SESSION_SECRET
+8:48:05 AM:       - NODE_VERSION
+8:48:05 AM:       - NEXT_TELEMETRY_DISABLED
+8:48:05 AM:     publish: /opt/build/repo/dist/public
+8:48:05 AM:     publishOrigin: config
+8:48:05 AM:   functions:
+8:48:05 AM:     "*":
+8:48:05 AM:       external_node_modules:
+8:48:05 AM:         - express
+8:48:05 AM:         - pg
+8:48:05 AM:         - drizzle-orm
+8:48:05 AM:         - passport
+8:48:05 AM:         - passport-local
+8:48:05 AM:         - express-session
+8:48:05 AM:         - connect-pg-simple
+8:48:05 AM:       included_files:
+8:48:05 AM:         - shared/**
+        - server/**
+      node_bundler: esbuild
+  functionsDirectory: /opt/build/repo/netlify/functions
+  headers:
+    - for: /*
+      values:
+        Referrer-Policy: strict-origin-when-cross-origin
+        X-Content-Type-Options: nosniff
+        X-Frame-Options: DENY
+        X-XSS-Protection: 1; mode=block
+    - for: /.netlify/functions/*
+      values:
+        Access-Control-Allow-Credentials: "true"
+        Access-Control-Allow-Headers: Content-Type, Authorization
+        Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  headersOrigin: config
+  redirects:
+    - force: true
+      from: /api/*
+      status: 200
+      to: /.netlify/functions/api/:splat
+    - from: /*
+      status: 200
+      to: /index.html
+  redirectsOrigin: config
+8:48:05 AM: Build failed due to a user error: Build script returned non-zero exit code: 2
+8:48:06 AM: Failing build: Failed to build site
+8:48:06 AM: Finished processing build request in 1m10.326s

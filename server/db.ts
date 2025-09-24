@@ -11,10 +11,15 @@ if (!databaseUrl) {
   );
 }
 
+const sslConfig = process.env.AIVEN_CA_CERT ? {
+  ca: process.env.AIVEN_CA_CERT,
+  rejectUnauthorized: false  // Needed for Netlify compatibility
+} : {
+  rejectUnauthorized: false
+};
+
 export const pool = new Pool({ 
   connectionString: databaseUrl,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: sslConfig
 });
 export const db = drizzle(pool, { schema });
