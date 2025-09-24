@@ -1,0 +1,106 @@
+8:28:32 AM: Netlify Build                                                 
+8:28:32 AM: ────────────────────────────────────────────────────────────────
+8:28:32 AM: ​
+8:28:32 AM: ❯ Version
+8:28:32 AM:   @netlify/build 35.1.6
+8:28:32 AM: ​
+8:28:32 AM: ❯ Flags
+8:28:32 AM:   accountId: 68c9b68861e95b5741c05934
+8:28:32 AM:   baseRelDir: true
+8:28:32 AM:   buildId: 68d3491ca133fa0008c78aab
+8:28:32 AM:   deployId: 68d3491ca133fa0008c78aad
+8:28:32 AM: (node:2080) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+8:28:32 AM: (Use `node --trace-warnings ...` to show where the warning was created)
+8:28:32 AM: ​
+8:28:32 AM: ❯ Current directory
+8:28:32 AM:   /opt/build/repo
+8:28:32 AM: ​
+8:28:32 AM: ❯ Config file
+8:28:32 AM:   /opt/build/repo/netlify.toml
+8:28:32 AM: ​
+8:28:32 AM: ❯ Context
+8:28:32 AM:   production
+8:28:32 AM: ​
+8:28:32 AM: ❯ Installing extensions
+8:28:32 AM:    - neon
+8:28:58 AM: ​
+8:28:58 AM: ❯ Loading extensions
+8:28:58 AM:    - neon
+8:28:59 AM: ​
+8:28:59 AM: build.command from netlify.toml                               
+8:28:59 AM: ────────────────────────────────────────────────────────────────
+8:28:59 AM: ​
+8:28:59 AM: $ npm run build:netlify
+8:28:59 AM: > rest-express@1.0.0 build:netlify
+8:28:59 AM: > vite build
+8:28:59 AM: sh: 1: vite: not found
+8:28:59 AM: ​
+8:28:59 AM: "build.command" failed                                        
+8:28:59 AM: ────────────────────────────────────────────────────────────────
+8:28:59 AM: ​
+8:28:59 AM:   Error message
+8:28:59 AM:   Command failed with exit code 127: npm run build:netlify (https://ntl.fyi/exit-code-127)
+8:28:59 AM: ​
+8:28:59 AM:   Error location
+8:28:59 AM:   In build.command from netlify.toml:
+8:28:59 AM:   npm run build:netlify
+8:28:59 AM: ​
+8:28:59 AM:   Resolved config
+8:28:59 AM:   build:
+8:28:59 AM:     command: npm run build:netlify
+8:28:59 AM:     commandOrigin: config
+8:28:59 AM:     environment:
+8:28:59 AM:       - AIVEN_CA_CERT
+8:28:59 AM:       - AIVEN_DATABASE_URL
+8:28:59 AM:       - I7eWAg
+8:28:59 AM:       - JWT_SECRET
+8:28:59 AM:       - NETLIFY_DATABASE_URL
+8:28:59 AM:       - NETLIFY_DATABASE_URL_UNPOOLED
+8:28:59 AM:       - NODE_ENV
+8:28:59 AM:       - NODE_TLS_REJECT_UNAUTHORIZED
+8:28:59 AM:       - SESSION_SECRET
+8:28:59 AM:       - NODE_VERSION
+8:28:59 AM:       - NEXT_TELEMETRY_DISABLED
+8:28:59 AM:     publish: /opt/build/repo/dist/public
+8:28:59 AM:     publishOrigin: config
+8:28:59 AM:   functions:
+8:28:59 AM:     "*":
+8:28:59 AM:       external_node_modules:
+8:28:59 AM:         - express
+8:28:59 AM:         - pg
+8:28:59 AM:         - drizzle-orm
+8:28:59 AM:         - passport
+8:28:59 AM:         - passport-local
+8:28:59 AM:         - express-session
+8:28:59 AM:         - connect-pg-simple
+8:28:59 AM:       included_files:
+8:29:00 AM: Failed during stage 'building site': Build script returned non-zero exit code: 2 (https://ntl.fyi/exit-code-2)
+8:29:00 AM:         - shared/**
+        - server/**
+      node_bundler: esbuild
+  functionsDirectory: /opt/build/repo/netlify/functions
+  headers:
+    - for: /*
+      values:
+        Referrer-Policy: strict-origin-when-cross-origin
+        X-Content-Type-Options: nosniff
+        X-Frame-Options: DENY
+        X-XSS-Protection: 1; mode=block
+    - for: /.netlify/functions/*
+      values:
+        Access-Control-Allow-Credentials: "true"
+        Access-Control-Allow-Headers: Content-Type, Authorization
+        Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  headersOrigin: config
+  redirects:
+    - force: true
+      from: /api/*
+      status: 200
+      to: /.netlify/functions/api/:splat
+    - from: /*
+      status: 200
+      to: /index.html
+  redirectsOrigin: config
+8:29:00 AM: Build failed due to a user error: Build script returned non-zero exit code: 2
+8:29:00 AM: Failing build: Failed to build site
+8:29:01 AM: Finished processing build request in 43.095s
