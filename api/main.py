@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.core.config import settings
 from api.database.connection import engine, Base
 from api.routes.setoran import router as setoran_router
+from api.routes.auth import router as auth_router
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -24,6 +25,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_router)
 app.include_router(setoran_router)
 
 
