@@ -1,6 +1,135 @@
 # Overview
 
-This is a multi-role employee management system built with React, TypeScript, Express, and PostgreSQL. The application serves staff, managers, and administrators with different access levels for attendance tracking, sales reporting, cashflow management, payroll processing, and proposal submissions. The system supports multiple stores and includes role-based authentication and authorization.
+This is a setoran harian (daily deposit) management system built with React, TypeScript, Python FastAPI, and PostgreSQL. The application has been migrated from Express.js to Python FastAPI backend for better performance and maintainability. It includes authentication, deposit tracking, calculation automation, and comprehensive business logic for Indonesian number formatting.
+
+## 🚀 **REPLIT DEPLOYMENT TUTORIAL - UPDATED Sept 24, 2025**
+
+### Quick Start (if already configured)
+1. Ensure AIVEN_DATABASE_URL and AIVEN_CA_CERT secrets are set
+2. Run workflows: `Python API Backend` and `Frontend App`  
+3. Access app at the Replit webview URL
+
+### Full Setup From Scratch
+
+#### 1. ⚙️ **Environment Setup**
+```bash
+# These are automatically configured in this Replit:
+- Python 3.11 with FastAPI, SQLAlchemy, Pydantic
+- Node.js 20 with React, Vite, TailwindCSS
+- PostgreSQL database via Aiven
+```
+
+#### 2. 🗄️ **Database Configuration** 
+**REQUIRED**: Set these secrets in Replit Secrets tab:
+
+**AIVEN_DATABASE_URL**:
+```
+postgresql://username:password@host:port/defaultdb?sslmode=require
+```
+
+**AIVEN_CA_CERT**:
+```
+-----BEGIN CERTIFICATE-----
+[Your Aiven CA Certificate]
+-----END CERTIFICATE-----
+```
+
+#### 3. 🏃‍♂️ **Running the Application**
+
+**Start Python Backend** (Port 8000):
+```bash
+python run_python_api.py
+```
+
+**Start React Frontend** (Port 5000):
+```bash
+npm run dev
+```
+
+#### 4. 🛠️ **Workflow Configuration**
+**Workflow 1**: `Python API Backend`
+- Command: `python run_python_api.py`
+- Port: 8000
+- Output: Console
+
+**Workflow 2**: `Frontend App`  
+- Command: `npm run dev`
+- Port: 5000 (may auto-switch to 5001)
+- Output: Webview
+
+#### 5. 🔧 **Important Configuration**
+
+**Vite Config (vite.config.ts)**:
+```typescript
+server: {
+  host: "0.0.0.0",
+  port: 5000,
+  allowedHosts: true, // CRITICAL for Replit proxy
+}
+```
+
+**Frontend Environment (.env)**:
+```bash
+VITE_PYTHON_API_BASE_URL=http://localhost:8000
+```
+
+#### 6. 🐛 **Common Issues & Solutions**
+
+**❌ "Blocked request. This host is not allowed"**
+- Solution: Add `allowedHosts: true` to vite.config.ts
+
+**❌ "404 login failed"**  
+- Solution: Auth endpoints added to Python backend
+
+**❌ "Address already in use"**
+- Solution: Kill existing processes, restart workflows
+
+**❌ "email-validator not installed"**
+- Solution: Use regular `str` instead of `EmailStr`
+
+#### 7. 🚀 **API Endpoints**
+
+**Authentication:**
+- `POST /api/login` - Login with email/password
+- `POST /api/register` - User registration  
+- `GET /api/user` - Get current user
+- `POST /api/logout` - Logout
+
+**Setoran Management:**
+- `POST /api/setoran` - Create deposit record
+- `GET /api/setoran` - List all deposits
+- `GET /api/setoran/{id}` - Get specific deposit
+- `PUT /api/setoran/{id}` - Update deposit
+- `DELETE /api/setoran/{id}` - Delete deposit
+- `POST /api/setoran/calculate` - Preview calculation
+
+**API Documentation:**
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+
+#### 8. 🔐 **Test Login Credentials**
+```
+Admin: admin@example.com / admin123
+Staff: staff@example.com / staff123
+```
+
+#### 9. ✅ **Deployment Checklist**
+- [ ] Aiven database secrets configured
+- [ ] Python backend running on port 8000
+- [ ] React frontend running on port 5000/5001
+- [ ] Vite allowedHosts configured
+- [ ] API endpoints responding (test /health)
+- [ ] Authentication working
+- [ ] Frontend can access backend APIs
+
+#### 10. 📞 **Support & Troubleshooting**
+If issues persist after following this tutorial:
+1. Check workflow logs in Replit console
+2. Verify environment variables are set
+3. Test API endpoints with curl
+4. Check browser console for frontend errors
+
+**Last Updated**: September 24, 2025 - Fully tested and working
 
 # User Preferences
 
