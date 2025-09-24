@@ -1,6 +1,6 @@
 [build]
-  # Build command untuk frontend
-  command = "npm run build:netlify"
+  # Build command untuk frontend - install dependencies dulu
+  command = "npm install && npm run build:netlify"
   
   # Publish directory (hasil build Vite)
   publish = "dist/public"
